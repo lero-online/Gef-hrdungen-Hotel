@@ -54,6 +54,7 @@ class Assessment:
     location: str
     created_at: str          # ISO
     created_by: str
+    industry: str = "Hotel/Gastgewerbe"
     scope_note: str = ""
     risk_matrix_thresholds: Dict[str, List[int]] = field(default_factory=lambda: {
         # Grenzwerte für 5x5 Matrix (Summe = prob*sev)
@@ -127,6 +128,7 @@ def dump_excel(assess: Assessment) -> bytes:
         "Standort": assess.location,
         "Erstellt am": assess.created_at,
         "Erstellt von": assess.created_by,
+        "Branche": assess.industry,
         "Umfang/Scope": assess.scope_note,
         "Maßnahmenplan-Hinweis": assess.measures_plan_note,
         "Dokumentationshinweis": assess.documentation_note,
@@ -163,18 +165,20 @@ def from_json(s: str) -> Assessment:
             documentation_note=h.get("documentation_note", "")
         ))
     return Assessment(
-        company=data["company"], location=data["location"], created_at=data["created_at"],
-        created_by=data["created_by"], scope_note=data.get("scope_note", ""),
+        company=data.get("company",""), location=data.get("location",""), created_at=data.get("created_at",""),
+        created_by=data.get("created_by",""), industry=data.get("industry","Hotel/Gastgewerbe"),
+        scope_note=data.get("scope_note", ""),
         risk_matrix_thresholds=data.get("risk_matrix_thresholds", {"thresholds":[6,12,16]}),
         hazards=hazards, measures_plan_note=data.get("measures_plan_note",""),
         documentation_note=data.get("documentation_note",""), next_review_hint=data.get("next_review_hint","")
     )
 
 # =========================
-# Vorlagen – Großhotel (fein & mit Starter-Maßnahmen)
+# Branchen-Bibliothek (erweiterbar)
+# Struktur: { Branche: { Bereich: [ {activity, hazard, sources, existing, measures[]} ] } }
 # =========================
 
-TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
+LIB_HOTEL = {
     "Küche": [
         {
             "activity": "Kochen (Töpfe/Kessel)",
@@ -182,22 +186,20 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Herde", "Kessel", "Töpfe", "Heißwasser"],
             "existing": ["Hitzeschutzhandschuhe/-schürzen", "Sichere Griffe/Ablagen", "Unterweisung"],
             "measures": [
-                {"title": "Topfdeckel-/Spritzschutz konsequent nutzen", "stop_level": "T (Technisch)", "notes": "Spritzschutz reduziert Dampf/Hitzebelastung"},
-                {"title": "Arbeitswege freihalten & ‚Heiß!‘ kommunizieren", "stop_level": "O (Organisatorisch)", "notes": "Teamkommunikation in Stoßzeiten"},
-                {"title": "Hitzeschutzhandschuhe bereitstellen/prüfen", "stop_level": "P (PSA)", "notes": "Kennzeichnung der Größen"},
-                {"title": "Unterweisung Verbrühungs-/Verbrennungsgefahren", "stop_level": "Q (Qualifikation/Unterweisung)", "notes": "Jährlich + bei Neuzugang"}
+                {"title": "Topfdeckel-/Spritzschutz konsequent nutzen", "stop_level": "T (Technisch)"},
+                {"title": "Arbeitswege freihalten & ‚Heiß!‘ rufen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutzhandschuhe bereitstellen/prüfen", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung Verbrühungen/Verbrennungen", "stop_level": "Q (Qualifikation/Unterweisung)"}
             ]
         },
         {
             "activity": "Braten (Pfanne/Grillplatte)",
             "hazard": "Fettspritzer, Verbrennungen, Rauch/Dämpfe",
             "sources": ["Bratpfannen", "Grillplatten"],
-            "existing": ["Spritzschutz/Abdeckungen", "Abzugshaube funktionsfähig", "Hitzeschutz"],
+            "existing": ["Spritzschutz/Abdeckungen", "Abzugshaube funktionsfähig"],
             "measures": [
-                {"title": "Spritzschutz an Grillplatten nachrüsten/verwenden", "stop_level": "T (Technisch)"},
-                {"title": "Abzugshauben reinigen & Luftvolumen prüfen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutz am Arbeitsplatz bereithalten", "stop_level": "P (PSA)"},
-                {"title": "Gefahrstoffe aus Dämpfen thematisieren", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Spritzschutz an Grillplatten verwenden", "stop_level": "T (Technisch)"},
+                {"title": "Abluftleistung prüfen/reinigen", "stop_level": "O (Organisatorisch)"}
             ]
         },
         {
@@ -206,32 +208,28 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Fritteusen"],
             "existing": ["Fettbrandlöscher/Löschdecke", "Kein Wasser!", "Unterweisung Fettbrand"],
             "measures": [
-                {"title": "Fritteusenhauben/Deckel verwenden", "stop_level": "T (Technisch)"},
-                {"title": "Ölwechsel- & Reinigungsplan einführen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutzhandschuhe & Schürzen verpflichtend", "stop_level": "P (PSA)"},
-                {"title": "Fettbrand-Training (Brandklassen, Verhalten)", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Ölwechsel- & Reinigungsplan festlegen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutzschürze und -handschuhe Pflicht", "stop_level": "P (PSA)"}
             ]
         },
         {
             "activity": "Kombidämpfer/Dampfgarer öffnen",
             "hazard": "Dampf/Heißluft – Verbrühung beim Öffnen",
             "sources": ["Kombidämpfer", "Dampfgarer"],
-            "existing": ["Tür vorsichtig öffnen", "Hitzeschutz", "Abkühlzeit beachten"],
+            "existing": ["Tür vorsichtig öffnen", "Abkühlzeit beachten"],
             "measures": [
-                {"title": "Türöffnungsroutine (Kipp/Spalt) standardisieren", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutzhandschuhe verpflichtend", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: sichere Öffnung/Abdampfen", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Türöffnungsroutine (Spalt) einführen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutzhandschuhe verpflichtend", "stop_level": "P (PSA)"}
             ]
         },
         {
             "activity": "Schneiden – Arbeiten mit Messern",
             "hazard": "Schnitt-/Stichverletzungen",
             "sources": ["Messer", "Schneidbretter"],
-            "existing": ["Scharfe Messer", "Schnittschutzhandschuhe nach Bedarf", "Messerschulung"],
+            "existing": ["Scharfe Messer", "Schnittschutzhandschuhe nach Bedarf"],
             "measures": [
-                {"title": "Messerschärfservice/Schleifplan einführen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schnittschutz-Handschuhe für riskante Schnitte", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Schnitttechnik/Abstellregeln", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Schleifplan/Messerservice einführen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schnittschutz bei Risikoschnitten", "stop_level": "P (PSA)"}
             ]
         },
         {
@@ -240,21 +238,17 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Aufschnittmaschine"],
             "existing": ["Schutzhauben", "Nur Befugte", "Strom trennen bei Reinigung"],
             "measures": [
-                {"title": "Sicherheitsbauteile prüfen (Hauben/Not-Aus)", "stop_level": "T (Technisch)"},
-                {"title": "Berechtigungssystem: nur Geschulte bedienen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schnittfeste Handschuhe beim Reinigen", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Reinigung nur stromlos", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Sicherheitsbauteile prüfen (Haube/Not-Aus)", "stop_level": "T (Technisch)"},
+                {"title": "Berechtigungssystem für Bediener", "stop_level": "O (Organisatorisch)"}
             ]
         },
         {
             "activity": "Maschinen: Fleischwolf/Gemüseschneider",
             "hazard": "Eingezogenwerden, Schnittverletzung",
             "sources": ["Fleischwolf", "Gemüseschneider"],
-            "existing": ["Stopfer benutzen", "Nie mit der Hand nachschieben", "Not-Aus"],
+            "existing": ["Stopfer benutzen", "Nie mit der Hand nachschieben"],
             "measures": [
-                {"title": "Stopfer/Schutzvorrichtungen verfügbar halten", "stop_level": "T (Technisch)"},
-                {"title": "Betriebsanweisung aushängen/umsetzen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schnittschutzhandschuhe für Reinigungsarbeiten", "stop_level": "P (PSA)"},
+                {"title": "Stopfer/Schutzeinrichtungen bereitstellen", "stop_level": "T (Technisch)"},
                 {"title": "Unterweisung: Einziehen vermeiden/Not-Aus", "stop_level": "Q (Qualifikation/Unterweisung)"}
             ]
         },
@@ -262,70 +256,52 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "activity": "Spülbereich/Stewarding",
             "hazard": "Heißes Wasser/Dampf, Chemikalien, Rutschgefahr",
             "sources": ["Spülmaschine", "Klarspüler", "Nasse Böden"],
-            "existing": ["Hand-/Augenschutz", "Rutschhemmende Schuhe", "Boden sofort trockenlegen"],
+            "existing": ["Hand-/Augenschutz", "Rutschhemmende Schuhe"],
             "measures": [
-                {"title": "Anti-Rutsch-Matten/Absaugung an Engstellen", "stop_level": "T (Technisch)"},
                 {"title": "Sofort-Wisch-Regel & Warnschilder", "stop_level": "O (Organisatorisch)"},
-                {"title": "Chemikalienschutzhandschuhe bereitstellen", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Dosierung & CLP-Symbole", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Anti-Rutsch-Matten an Engstellen", "stop_level": "T (Technisch)"}
             ]
         },
         {
-            "activity": "Gasbetriebene Geräte",
+            "activity": "Gasgeräte",
             "hazard": "Gasleck, CO-Bildung, Brand/Explosion",
             "sources": ["Gasherde", "Leitungen"],
-            "existing": ["Dichtheitsprüfung", "Belüftung/Abzug", "Alarmplan/Löscher"],
+            "existing": ["Dichtheitsprüfung", "Gute Belüftung"],
             "measures": [
                 {"title": "Gaswarnmelder installieren/warten", "stop_level": "T (Technisch)"},
-                {"title": "Leckcheck-Plan & Freigabe vor Inbetriebnahme", "stop_level": "O (Organisatorisch)"},
-                {"title": "CO-Erste-Hilfe-Hinweise aushängen", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Leckcheck-Freigabe vor Inbetriebnahme", "stop_level": "O (Organisatorisch)"}
             ]
         },
         {
             "activity": "Warenannahme/Hubwagen",
             "hazard": "Quetschungen, Heben/Tragen, Verkehrswege",
             "sources": ["Rollcontainer", "Kisten", "Handhubwagen"],
-            "existing": ["Rollwagen/Hubhilfe", "Hebetechnik", "Wege frei"],
+            "existing": ["Rollwagen/Hubhilfe", "Hebetechnik"],
             "measures": [
                 {"title": "Wege kennzeichnen & freihalten", "stop_level": "O (Organisatorisch)"},
-                {"title": "Kurzunterweisung ‚Heben/Tragen & Hubwagen‘", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Kurzunterweisung Heben/Tragen & Hubwagen", "stop_level": "Q (Qualifikation/Unterweisung)"}
             ]
         },
-        {
-            "activity": "Altöl/Müll entsorgen",
-            "hazard": "Verbrennung bei heißem Öl, Schnitt/Infektion",
-            "sources": ["Altölbehälter", "Müllsack"],
-            "existing": ["Abkühlen lassen", "Dichte Behälter"],
-            "measures": [
-                {"title": "Altöl-Transportbehälter mit Deckel", "stop_level": "T (Technisch)"},
-                {"title": "Entsorgungsanweisung (Wege/Zeiten)", "stop_level": "O (Organisatorisch)"},
-                {"title": "Handschutz verpflichtend", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: sichere Entsorgung", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        }
     ],
-
     "Housekeeping": [
         {
             "activity": "Betten machen",
             "hazard": "Rücken-/Schulterbelastung, Verdrehungen",
             "sources": ["Schwere Matratzen", "Beengte Bereiche"],
-            "existing": ["Arbeitstechnik", "Höhenverstellbare Betten/Wagen", "Job-Rotation"],
+            "existing": ["Arbeitstechnik", "Höhenverstellbare Wagen"],
             "measures": [
                 {"title": "Stecklaken-/Ecken-Technik schulen", "stop_level": "Q (Qualifikation/Unterweisung)"},
-                {"title": "Leichtere Bettwaren beschaffen", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Arbeitsplatzwechsel im Team planen", "stop_level": "O (Organisatorisch)"}
+                {"title": "Leichtere Bettwaren beschaffen", "stop_level": "S (Substitution/Quelle entfernen)"}
             ]
         },
         {
             "activity": "Sanitärreinigung",
             "hazard": "Chemikalienreizungen, Aerosole",
             "sources": ["Reiniger/Desinfektion", "Sprühflaschen"],
-            "existing": ["Hautschutzplan", "Hand-/Augenschutz", "Lüften"],
+            "existing": ["Hautschutzplan", "Hand-/Augenschutz"],
             "measures": [
-                {"title": "Vordosierte Kartuschen/Schäume statt Sprühnebel", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Dosierstation & Piktogramme am Waschbecken", "stop_level": "T (Technisch)"},
-                {"title": "PSA-Check (Größen, Verfügbarkeit)", "stop_level": "P (PSA)"}
+                {"title": "Vordosierte Kartuschen statt Sprühnebel", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Dosierstation & Piktogramme", "stop_level": "T (Technisch)"}
             ]
         },
         {
@@ -335,23 +311,10 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "existing": ["Leiterprüfung", "Standflächen sichern"],
             "measures": [
                 {"title": "Teleskopstiele statt Leiter (wo möglich)", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Leiterlogin (Prüf- & Benutzregeln) aushängen", "stop_level": "O (Organisatorisch)"},
                 {"title": "Schnittfeste Handschuhe bei Bruchgefahr", "stop_level": "P (PSA)"}
-            ]
-        },
-        {
-            "activity": "Abfallentsorgung",
-            "hazard": "Stich-/Schnittverletzungen, Infektionsgefahr",
-            "sources": ["Nadeln", "Scherben"],
-            "existing": ["Stichfeste Handschuhe", "Feste Behälter"],
-            "measures": [
-                {"title": "Sharps-Boxen auf Etagenwagen", "stop_level": "T (Technisch)"},
-                {"title": "Wege/Zeiten für Entsorgung festlegen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung: Nadel-/Scherbenfund", "stop_level": "Q (Qualifikation/Unterweisung)"}
             ]
         }
     ],
-
     "Service/Bar": [
         {
             "activity": "Heißgetränke zubereiten",
@@ -359,9 +322,7 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Kaffeemaschine", "Wasserkocher", "Dampflanze"],
             "existing": ["Hitzeschutz", "Sichere Ablagen"],
             "measures": [
-                {"title": "Becher-/Tassenablagen gegen Umkippen sichern", "stop_level": "T (Technisch)"},
-                {"title": "Dampflanzen-Routine (Ablassen vor Nutzung)", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung ‚Verbrühungen vermeiden‘", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Dampflanzen-Routine (Ablassen vor Nutzung)", "stop_level": "O (Organisatorisch)"}
             ]
         },
         {
@@ -370,25 +331,11 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["CO₂-Flaschen", "Keller"],
             "existing": ["CO₂-Warner/Lüftung", "Flaschen sichern"],
             "measures": [
-                {"title": "CO₂-Sensoren mit Alarm testen & dokumentieren", "stop_level": "T (Technisch)"},
-                {"title": "Wechsel nur zu zweit, Freigabe nach Belüftung", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hand-/Augenschutz beim Flaschenwechsel", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Hochdruck & Notfallplan", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Flambieren/Offene Flamme",
-            "hazard": "Brand, Alkoholdämpfe",
-            "sources": ["Brenner", "Spirituosen"],
-            "existing": ["Abstand zu Gästen", "Löschmittel bereit"],
-            "measures": [
-                {"title": "Brennpasten-/Flambiergeräte mit Rückschlagstopp", "stop_level": "T (Technisch)"},
-                {"title": "Freigabe nur für Geschulte, keine Alleinarbeit", "stop_level": "O (Organisatorisch)"},
-                {"title": "Brandverhalten/Einsatz Feuerlöscher trainieren", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "CO₂-Sensoren testen & dokumentieren", "stop_level": "T (Technisch)"},
+                {"title": "Wechsel nur zu zweit, nach Belüftung", "stop_level": "O (Organisatorisch)"}
             ]
         }
     ],
-
     "Technik/Haustechnik": [
         {
             "activity": "Elektroarbeiten (E-Fachkräfte/EUP)",
@@ -396,9 +343,8 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Verteilungen", "Feuchte Bereiche"],
             "existing": ["Freischalten/Sperren/Kennzeichnen (LOTO)"],
             "measures": [
-                {"title": "Spannungsprüfer/PSA-Klasse bereitstellen", "stop_level": "T (Technisch)"},
-                {"title": "LOTO-Verfahren verpflichtend dokumentieren", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung: Arbeiten unter Spannung – verboten", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "LOTO-Verfahren dokumentieren", "stop_level": "O (Organisatorisch)"},
+                {"title": "Spannungsprüfer/geeignete PSA", "stop_level": "T (Technisch)"}
             ]
         },
         {
@@ -408,25 +354,10 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "existing": ["Heißarbeitsgenehmigung", "Feuerwache/Nachkontrolle"],
             "measures": [
                 {"title": "Funkenschutz/Abschirmungen bereitstellen", "stop_level": "T (Technisch)"},
-                {"title": "Löschmittel/Feuerlöscher in Griffweite", "stop_level": "O (Organisatorisch)"},
-                {"title": "PSA: Schweißerhelm, Handschutz, Kleidung", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Gasführung/Ex-Schutz", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Löschmittel/Feuerlöscher bereit halten", "stop_level": "O (Organisatorisch)"}
             ]
         },
-        {
-            "activity": "Dach-/Höhenarbeit",
-            "hazard": "Absturz",
-            "sources": ["Dachkanten", "Gerüste"],
-            "existing": ["Absperren", "PSAgA"],
-            "measures": [
-                {"title": "Anschlagpunkte & Rettungsplan prüfen", "stop_level": "T (Technisch)"},
-                {"title": "Zwei-Personen-Regel & Wettercheck", "stop_level": "O (Organisatorisch)"},
-                {"title": "Höhensicherungs-PSA prüfen und zuordnen", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Absturzsicherung/Rettung", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        }
     ],
-
     "Lager/Wareneingang": [
         {
             "activity": "Auspacken/Öffnen",
@@ -434,10 +365,8 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Cuttermesser", "Folien/Umreifungen"],
             "existing": ["Sichere Messer", "Müll sofort entsorgen"],
             "measures": [
-                {"title": "Sicherheitsmesser (autom. Klingenrückzug)", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Ablageflächen für Kartonagen", "stop_level": "T (Technisch)"},
-                {"title": "Müll-Station nahe Rampe definieren", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung: Messerführung/Grifftechnik", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Sicherheitsmesser (Klingenrückzug)", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Müll-Station nahe Rampe definieren", "stop_level": "O (Organisatorisch)"}
             ]
         },
         {
@@ -447,33 +376,10 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "existing": ["Wege markieren", "Langsam fahren"],
             "measures": [
                 {"title": "Anschläge/Stopper an Rampen", "stop_level": "T (Technisch)"},
-                {"title": "Verkehrsordnung (Vorfahrt/Signal) aushängen", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "Einlagern/Greifhöhen",
-            "hazard": "Überlastung Rücken/Schulter",
-            "sources": ["Hohes Regal", "Schwere Kisten"],
-            "existing": ["Leitern/Tritte geprüft", "Rollwagen"],
-            "measures": [
-                {"title": "Schwere Ware zwischen Knie-/Schulterhöhe", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hebehilfe (Lifter) prüfen/anwenden", "stop_level": "T (Technisch)"},
-                {"title": "Ergonomie-Kurztraining", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Kohlenstoffdioxid/Kälte TK",
-            "hazard": "Kälte, Rutschgefahr",
-            "sources": ["Eis/Kondenswasser", "TK-Zonen"],
-            "existing": ["Kälteschutz", "Rutschhemmung"],
-            "measures": [
-                {"title": "Antirutsch-Matten & Eis entfernen", "stop_level": "T (Technisch)"},
-                {"title": "Aufenthaltsdauer in TK begrenzen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Kälteschutzkleidung Pflicht", "stop_level": "P (PSA)"}
+                {"title": "Verkehrsordnung aushängen", "stop_level": "O (Organisatorisch)"}
             ]
         }
     ],
-
     "Spa/Wellness": [
         {
             "activity": "Sauna/Ofen & Aufguss",
@@ -482,34 +388,10 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "existing": ["Abschirmungen", "Nur Befugte"],
             "measures": [
                 {"title": "Ofenschutzgitter/Temperaturwächter prüfen", "stop_level": "T (Technisch)"},
-                {"title": "Aufguss nur nach festen Regeln/Zeiten", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung: Notfall/Überhitzung", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Pooltechnik/Chemie",
-            "hazard": "Gefahrstoffe (Chlor, pH-Regulatoren), Gasfreisetzung",
-            "sources": ["Dosier-/Lagerräume"],
-            "existing": ["Lüftung/Absaugung", "Augendusche"],
-            "measures": [
-                {"title": "Chemikalienlager: Auffangwannen/Trennung", "stop_level": "T (Technisch)"},
-                {"title": "Freigabe erst nach Gaswarner-Check", "stop_level": "O (Organisatorisch)"},
-                {"title": "PSA: Atem-/Hand-/Augenschutz vorhalten", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: TRGS/CLP & Notfallkarten", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Nassbereiche",
-            "hazard": "Rutsch-/Sturzgefahr",
-            "sources": ["Fliesen", "Wasser"],
-            "existing": ["Rutschhemmung", "Reinigungskonzept"],
-            "measures": [
-                {"title": "Rutschhemmende Matten/Beläge prüfen", "stop_level": "T (Technisch)"},
-                {"title": "Sofort-Wisch-Regel & Sperrung bei Nässe", "stop_level": "O (Organisatorisch)"}
+                {"title": "Aufgussregeln verbindlich festlegen", "stop_level": "O (Organisatorisch)"}
             ]
         }
     ],
-
     "Rezeption": [
         {
             "activity": "Front Office/Gästekommunikation",
@@ -517,25 +399,10 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Beschwerden", "Stoßzeiten"],
             "existing": ["Deeskalationstraining", "Pausenplanung"],
             "measures": [
-                {"title": "Rückzugsplatz/Backoffice definieren", "stop_level": "T (Technisch)"},
-                {"title": "Stoßzeiten doppelt besetzen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Training: Konflikt/Deeskalation", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Nacht-/Alleinarbeit",
-            "hazard": "Überfall/Bedrohung, Ermüdung",
-            "sources": ["Späte Schichten"],
-            "existing": ["Alarmtaster/Video nach Risiko"],
-            "measures": [
-                {"title": "Stillen Alarm testen & dokumentieren", "stop_level": "T (Technisch)"},
-                {"title": "Zwei-Personen-Regel nach Gefährdung", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schicht-/Pausenmanagement optimieren", "stop_level": "O (Organisatorisch)"},
-                {"title": "Unterweisung: Verhalten bei Überfall", "stop_level": "Q (Qualifikation/Unterweisung)"}
+                {"title": "Stoßzeiten doppelt besetzen", "stop_level": "O (Organisatorisch)"}
             ]
         }
     ],
-
     "Verwaltung": [
         {
             "activity": "Bildschirmarbeit",
@@ -543,23 +410,11 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
             "sources": ["Sitzplätze", "Monitore"],
             "existing": ["Angepasster Arbeitsplatz", "Höhenverstellbarer Tisch/Stuhl"],
             "measures": [
-                {"title": "Monitore ergonomisch anordnen (Höhe/Abstand)", "stop_level": "T (Technisch)"},
                 {"title": "20-20-20-Regel & Mikropausen einführen", "stop_level": "O (Organisatorisch)"},
                 {"title": "Sehtest/Bildschirmbrille anbieten", "stop_level": "Q (Qualifikation/Unterweisung)"}
             ]
-        },
-        {
-            "activity": "Drucker/Tonerwechsel",
-            "hazard": "Feinstaub, Hautkontakt",
-            "sources": ["Toner", "Drucker"],
-            "existing": ["Lüftung", "Handschutz"],
-            "measures": [
-                {"title": "Wechselhandschuhe/Abfallbeutel bereitlegen", "stop_level": "T (Technisch)"},
-                {"title": "Wechsel nur in gut belüftetem Raum", "stop_level": "O (Organisatorisch)"}
-            ]
         }
     ],
-
     "Außenbereiche": [
         {
             "activity": "Gartenpflege/Mähen",
@@ -570,38 +425,116 @@ TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
                 {"title": "Stein-/Fremdkörperkontrolle vor Start", "stop_level": "O (Organisatorisch)"},
                 {"title": "Schutzvisier/Gehörschutz bereitstellen", "stop_level": "P (PSA)"}
             ]
-        },
-        {
-            "activity": "Hecken-/Baumschnitt",
-            "hazard": "Schnittverletzung, Absturz",
-            "sources": ["Heckenschere", "Leiter"],
-            "existing": ["Leiter sichern", "Zwei-Personen-Regel"],
-            "measures": [
-                {"title": "Teleskopgeräte statt Leiter (wo möglich)", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Anseilschutz/PSAgA bei Höhe einsetzen", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung: Motorsense/Heckenschere", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Winterdienst",
-            "hazard": "Rutschen, Kälte",
-            "sources": ["Eis/Schnee"],
-            "existing": ["Räum-/Streuplan"],
-            "measures": [
-                {"title": "Rutschhemmende Spikes/Schuhe", "stop_level": "P (PSA)"},
-                {"title": "Frühstartplan & Prioritätswege", "stop_level": "O (Organisatorisch)"}
-            ]
         }
     ]
 }
 
+LIB_BAECKEREI = {
+    "Produktion": [
+        {"activity": "Backen am Etagen-/Stikkenofen", "hazard": "Hitze/Verbrennung, Dampf", "sources": ["Öfen", "Backwagen"], "existing": ["Hitzeschutz"], "measures":[
+            {"title":"Backwagen fixieren & Handschutz nutzen","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Knetmaschine/Spiral-/Hubkneter", "hazard": "Eingezogenwerden/Quetschen", "sources": ["Knetmaschine"], "existing": ["Schutzhaube", "Not-Aus"], "measures":[
+            {"title":"Hauben-/Not-Aus-Prüfplan","stop_level":"T (Technisch)"}]},
+        {"activity": "Teigteiler/Rundwirker", "hazard": "Quetschen/Schnitt", "sources": ["Teigteiler", "Rundwirker"], "existing": ["Schutzvorrichtungen"], "measures":[
+            {"title":"Nur mit Werkzeug reinigen (stromlos)","stop_level":"Q (Qualifikation/Unterweisung)"}]},
+        {"activity": "Fritteuse/Schmalzbacken", "hazard": "Fettbrand, Verbrennung", "sources": ["Fritteuse"], "existing": ["Fettbrandlöscher"], "measures":[
+            {"title":"Ölwechselplan/Temperaturgrenzen","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Mehlstaub/Abwiegen", "hazard": "Staubexposition, pot. Explosion", "sources": ["Mehlstaub"], "existing": ["Absaugung/Lüftung"], "measures":[
+            {"title":"Staubarme Dosierung/geschl. Systeme","stop_level":"S (Substitution/Quelle entfernen)"}]},
+        {"activity": "Schockfrosten/Kühlräume", "hazard": "Kälte/Rutschgefahr", "sources": ["TK", "Kühlräume"], "existing": ["Kälteschutz"], "measures":[
+            {"title":"Aufenthaltsdauer begrenzen","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Reinigung/Desinfektion", "hazard": "Chemikalien/Ätzwirkung", "sources": ["Reiniger/Desinfektion"], "existing": ["Haut-/Augenschutz"], "measures":[
+            {"title":"Dosierstationen & Betriebsanweisungen","stop_level":"T (Technisch)"}]},
+    ],
+    "Verkauf": [
+        {"activity": "Brotschneiden/Brotschneidemaschine", "hazard": "Schnittverletzung", "sources": ["Brotschneider"], "existing": ["Schutzhaube"], "measures":[
+            {"title":"Nur befugte Bedienung","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Heißgetränke", "hazard": "Verbrühung", "sources": ["Kaffeemaschine"], "existing": ["Hitzeschutz"], "measures":[
+            {"title":"Dampflanze vorher abblasen","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Kassentätigkeit", "hazard": "Ergonomie, Überfallrisiko (einzelfallabh.)", "sources": ["Kasse"], "existing": ["Schulung"], "measures":[
+            {"title":"Kassenrichtlinie/Deeskalation","stop_level":"O (Organisatorisch)"}]},
+    ],
+    "Logistik": [
+        {"activity": "Lieferung/Backwagen", "hazard": "Quetschungen/Sturz", "sources": ["Backwagen", "Rampe"], "existing": ["Sichern/Stopper"], "measures":[
+            {"title":"Rampe sichern/Stopper nutzen","stop_level":"T (Technisch)"}]},
+    ]
+}
+
+LIB_FLEISCHEREI = {
+    "Produktion": [
+        {"activity": "Bandsäge", "hazard": "Schnitt/Amputation", "sources": ["Bandsäge"], "existing": ["Schutzhaube", "Not-Aus"], "measures":[
+            {"title":"Nur befugte Bedienung, Reinigung stromlos","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Fleischwolf", "hazard": "Eingezogenwerden", "sources": ["Fleischwolf"], "existing": ["Stopfer", "Schutz"], "measures":[
+            {"title":"Stopfer konsequent nutzen","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Kutter", "hazard": "Schnitt/Schlag", "sources": ["Kutter"], "existing": ["Haube", "Verriegelung"], "measures":[
+            {"title":"Verriegelung prüfen, nur stromlos reinigen","stop_level":"T (Technisch)"}]},
+        {"activity": "Vakuumierer/Schrumpfer", "hazard": "Verbrennung/Quetschung", "sources": ["Heißsiegel"], "existing": ["Hitzeschutz"], "measures":[
+            {"title":"Heißsiegelzonen markieren","stop_level":"T (Technisch)"}]},
+        {"activity": "Kühl-/TK-Lager", "hazard": "Kälte/Rutsch", "sources": ["Kühl/TK"], "existing": ["Kälteschutz"], "measures":[
+            {"title":"Zeitbegrenzung/Matten","stop_level":"O (Organisatorisch)"}]},
+        {"activity": "Reinigung/Desinfektion", "hazard": "Chemische Belastung", "sources": ["Reiniger"], "existing": ["PSA"], "measures":[
+            {"title":"Dosier-/Sicherheitsdatenblatt an Station","stop_level":"T (Technisch)"}]},
+    ],
+    "Verkauf": [
+        {"activity": "Aufschnitt/Bedienung", "hazard": "Schnittverletzung", "sources": ["Aufschnitt"], "existing": ["Schutzhaube"], "measures":[
+            {"title":"Messerschulung/Handschutz bei Bedarf","stop_level":"Q (Qualifikation/Unterweisung)"}]},
+        {"activity": "Heißtheke", "hazard": "Verbrennung", "sources": ["Heiße Theken"], "existing": ["Hitzeschutz"], "measures":[
+            {"title":"Abdeckung/Abstellen sichern","stop_level":"T (Technisch)"}]},
+    ]
+}
+
+LIB_KANTINE = {
+    # ähnlich Hotelküche + Spülstraße/Transport
+    "Küche": [
+        {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed. je nach Modell"],"measures":[
+            {"title":"Kipp-Prozess standardisieren","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Tablettförderband/Spülstraße","hazard":"Einklemm-/Scherstellen, Heißwasser/Dampf","sources":["Bandspülmaschine"],"existing":["Abdeckungen","Not-Aus"],"measures":[
+            {"title":"Nur befugte Bedienung, Hauben zu","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Ausgabe/Frontcooking","hazard":"Verbrennung, Kontakt mit Gästen","sources":["Wärmebrücken","Pfannen"],"existing":["Abschirmung","Greifzonen"],"measures":[
+            {"title":"Abstand/Abschirmung zu Gastbereichen","stop_level":"T (Technisch)"}]},
+    ],
+    "Logistik": [
+        {"activity":"Transportwagen/Tablettwagen","hazard":"Quetschen/Stolpern","sources":["Rollwagen","Aufzüge"],"existing":["Wege frei"],"measures":[
+            {"title":"Lastbegrenzung/Wegepriorität","stop_level":"O (Organisatorisch)"}]},
+    ]
+}
+
+LIB_KONDITOREI = {
+    "Produktion": [
+        {"activity":"Zucker kochen/Karamell","hazard":"Heißsirup/Verbrennung","sources":["Kocher"],"existing":["Hitzeschutz"],"measures":[
+            {"title":"Schutzbrille, langsames Aufgießen","stop_level":"P (PSA)"}]},
+        {"activity":"Kuvertüre/Temperieren","hazard":"Hitze, Spritzer","sources":["Bad/Tempering"],"existing":["Hitzeschutz"],"measures":[
+            {"title":"Deckel/Spritzschutz nutzen","stop_level":"T (Technisch)"}]},
+        {"activity":"Kleingeräte/Rührwerke","hazard":"Scher-/Einklemmstellen","sources":["Rührwerk"],"existing":["Schutz","Not-Aus"],"measures":[
+            {"title":"Nur stromlos reinigen","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Kühl-/TK","hazard":"Kälte/Rutsch","sources":["Kühl/TK"],"existing":["Kälteschutz"],"measures":[
+            {"title":"Aufenthalt begrenzen/Eis entfernen","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Reinigung","hazard":"Chemikalien","sources":["Reiniger"],"existing":["PSA"],"measures":[
+            {"title":"Dosierhilfen/Betriebsanweisung","stop_level":"T (Technisch)"}]},
+    ],
+    "Verkauf/Café": [
+        {"activity":"Kaffeemaschine/Heißgetränke","hazard":"Verbrühung","sources":["Dampflanze"],"existing":["Hitzeschutz"],"measures":[
+            {"title":"Dampflanze abblasen vor Nutzung","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Tortenmesser/Glasvitrine","hazard":"Schnitt/Glasschaden","sources":["Glas","Messer"],"existing":["Sichere Entsorgung"],"measures":[
+            {"title":"Polier-/Schnittschutzhandschuhe nach Bedarf","stop_level":"P (PSA)"}]},
+    ]
+}
+
+INDUSTRY_LIBRARY: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
+    "Hotel/Gastgewerbe": LIB_HOTEL,
+    "Bäckerei": LIB_BAECKEREI,
+    "Fleischerei/Metzgerei": LIB_FLEISCHEREI,
+    "Gemeinschaftsverpflegung/Kantine": LIB_KANTINE,
+    "Konditorei/Café": LIB_KONDITOREI,
+}
+
 # =========================
-# Vorladen inkl. Starter-Maßnahmen
+# Vorlagen laden (nach Branche)
 # =========================
 
-def preload_template(assess: Assessment):
-    # Lädt alle TEMPLATES inkl. optionaler Start-Maßnahmen (item["measures"])
-    for area, items in TEMPLATES.items():
+def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]]):
+    """Fügt Bereiche/Tätigkeiten aus einer Branchenvorlage hinzu (anhängen)."""
+    for area, items in template.items():
         for item in items:
             hz = Hazard(
                 id=new_id(),
@@ -611,7 +544,6 @@ def preload_template(assess: Assessment):
                 sources=item.get("sources", []),
                 existing_controls=item.get("existing", [])
             )
-            # Optionale initiale Maßnahmen hinzufügen
             for m in item.get("measures", []):
                 hz.additional_measures.append(Measure(
                     title=m["title"],
@@ -620,33 +552,70 @@ def preload_template(assess: Assessment):
                 ))
             assess.hazards.append(hz)
 
+def preload_industry(assess: Assessment, industry_name: str, replace: bool = True):
+    """Lädt Branchen-Vorlage; ersetzt vorhandene Gefährdungen oder hängt an."""
+    assess.industry = industry_name
+    if replace:
+        assess.hazards = []
+    template = INDUSTRY_LIBRARY.get(industry_name, {})
+    add_template_items(assess, template)
+
 # =========================
 # Streamlit App
 # =========================
 
-st.set_page_config(page_title="Gefährdungsbeurteilung Großhotel", layout="wide")
+st.set_page_config(page_title="Gefährdungsbeurteilung – Branchen (BGN)", layout="wide")
 
+# Session initialisieren
 if "assessment" not in st.session_state:
     st.session_state.assessment = Assessment(
-        company="Musterhotel GmbH",
+        company="Musterbetrieb GmbH",
         location="Beispielstadt",
         created_at=date.today().isoformat(),
         created_by="HSE/SiFa",
+        industry="Hotel/Gastgewerbe",
     )
-    preload_template(st.session_state.assessment)
+    # Standard: Hotel/Gastgewerbe laden
+    preload_industry(st.session_state.assessment, "Hotel/Gastgewerbe", replace=True)
 
 assess: Assessment = st.session_state.assessment
 
-st.title("Gefährdungsbeurteilung – Großhotel")
-st.caption("Struktur gemäß BAuA: Vorbereiten → Ermitteln → Beurteilen → Maßnahmen → Umsetzen → Wirksamkeit → Dokumentieren → Fortschreiben")
+# Kopf mit Duplizieren-Button (optional)
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.title("Gefährdungsbeurteilung – Branchen (BGN)")
+with col_head2:
+    if st.button("📄 Duplizieren", key="btn_duplicate"):
+        assess.created_at = date.today().isoformat()
+        assess.company = f"{assess.company} (Kopie)"
+        st.success("Kopie erstellt. Bitte speichern/exportieren.")
 
-# Seitenleiste: Meta & Konfiguration
+st.caption("Struktur: Vorbereiten → Ermitteln → Beurteilen → Maßnahmen → Umsetzen → Wirksamkeit → Dokumentieren → Fortschreiben")
+
+# Seitenleiste: Meta & Konfiguration & Branchenwahl
 with st.sidebar:
     st.header("Stammdaten")
     assess.company = st.text_input("Unternehmen", assess.company, key="meta_company")
     assess.location = st.text_input("Standort", assess.location, key="meta_location")
     assess.created_by = st.text_input("Erstellt von", assess.created_by, key="meta_created_by")
     assess.created_at = st.text_input("Erstellt am (ISO)", assess.created_at, key="meta_created_at")
+
+    st.markdown("---")
+    st.subheader("Branche wählen")
+    sector = st.selectbox("Branche", options=list(INDUSTRY_LIBRARY.keys()), index=list(INDUSTRY_LIBRARY.keys()).index(assess.industry) if assess.industry in INDUSTRY_LIBRARY else 0, key="sel_industry")
+    st.caption(f"Aktuell geladen: **{assess.industry}**")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("📚 Vorlage ERSETZEN", key="btn_load_replace"):
+            preload_industry(assess, sector, replace=True)
+            st.success(f"Vorlage '{sector}' geladen (ersetzt).")
+            st.rerun()
+    with c2:
+        if st.button("➕ Vorlage ANHÄNGEN", key="btn_load_append"):
+            preload_industry(assess, sector, replace=False)
+            st.success(f"Vorlage '{sector}' hinzugefügt.")
+            st.rerun()
 
     st.markdown("---")
     st.subheader("Risikomatrix (5×5)")
@@ -672,6 +641,7 @@ with st.sidebar:
     if up is not None:
         content = up.read().decode("utf-8")
         st.session_state.assessment = from_json(content)
+        st.success("Beurteilung geladen.")
         st.rerun()
 
 # Tabs = Prozessschritte
@@ -687,7 +657,7 @@ with tabs[0]:
         "Umfang / Arbeitsbereiche / Beteiligte (SiFa, Betriebsarzt, BR, Führungskräfte, Beschäftigte)",
         value=assess.scope_note, height=140, key="scope_note"
     )
-    st.info("Tipp: Bereiche und Tätigkeiten definieren; vorhandene Unterlagen (BA, BAuA-Infos, Betriebsanweisungen, Betriebsanleitungen) sammeln.")
+    st.info("Tipp: Branche wählen/prüfen und relevante Bereiche festlegen; Unterlagen (Betriebsanweisungen, SDS, Wartungspläne) sammeln.")
 
 # 2 Ermitteln
 with tabs[1]:
@@ -696,12 +666,17 @@ with tabs[1]:
 
     with colL:
         st.markdown("**Gefährdungen (Bearbeiten)**")
-        df = pd.DataFrame([hazard_to_row(h) for h in assess.hazards])
-        st.dataframe(df, use_container_width=True, hide_index=True, key="df_hazards")
+        if assess.hazards:
+            df = pd.DataFrame([hazard_to_row(h) for h in assess.hazards])
+            st.dataframe(df, use_container_width=True, hide_index=True, key="df_hazards")
+        else:
+            st.info("Keine Gefährdungen vorhanden. In der Sidebar eine Branchenvorlage laden.")
 
         with st.expander("➕ Gefährdung hinzufügen"):
             col1, col2 = st.columns(2)
-            area = col1.selectbox("Bereich", sorted(list(TEMPLATES.keys()) + ["Sonstiges"]), key="add_area")
+            # Bereiche dynamisch aus aktueller Branche + vorhandenen Bereichen generieren
+            known_areas = sorted({h.area for h in assess.hazards} | set(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) | {"Sonstiges"})
+            area = col1.selectbox("Bereich", known_areas, key="add_area")
             activity = col2.text_input("Tätigkeit", key="add_activity")
             hazard_txt = st.text_input("Gefährdung", key="add_hazard")
             sources = st.text_input("Quellen/Einwirkungen (durch ; trennen)", key="add_sources")
@@ -725,12 +700,9 @@ with tabs[1]:
         )
         if sel_id != "--":
             hz = next(h for h in assess.hazards if h.id == sel_id)
-            hz.area = st.selectbox(
-                "Bereich",
-                options=list(TEMPLATES.keys()) + ["Sonstiges"],
-                index=(list(TEMPLATES.keys()) + ["Sonstiges"]).index(hz.area) if hz.area in (list(TEMPLATES.keys()) + ["Sonstiges"]) else 0,
-                key=f"edit_area_{hz.id}"
-            )
+            all_areas = list(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) + ["Sonstiges"]
+            idx = all_areas.index(hz.area) if hz.area in all_areas else len(all_areas)-1
+            hz.area = st.selectbox("Bereich", options=all_areas, index=idx, key=f"edit_area_{hz.id}")
             hz.activity = st.text_input("Tätigkeit", value=hz.activity, key=f"edit_activity_{hz.id}")
             hz.hazard = st.text_input("Gefährdung", value=hz.hazard, key=f"edit_hazard_{hz.id}")
             src = st.text_area("Quellen/Einwirkungen", value="; ".join(hz.sources), key=f"edit_sources_{hz.id}")
@@ -749,52 +721,61 @@ with tabs[2]:
     colA, colB = st.columns([1,1])
 
     with colA:
-        sel = st.selectbox(
-            "Gefährdung auswählen",
-            options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-            key="sel_hazard_assess"
-        )
-        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
-        hz.prob = st.slider("Eintrittswahrscheinlichkeit (1 = sehr selten … 5 = häufig)", 1, 5, hz.prob, key=f"prob_{hz.id}")
-        hz.sev = st.slider("Schadensschwere (1 = gering … 5 = katastrophal)", 1, 5, hz.sev, key=f"sev_{hz.id}")
-        v, lvl = compute_risk(hz.prob, hz.sev, thresholds)
-        hz.risk_value, hz.risk_level = v, lvl
+        if not assess.hazards:
+            st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
+        else:
+            sel = st.selectbox(
+                "Gefährdung auswählen",
+                options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
+                key="sel_hazard_assess"
+            )
+            hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+            hz.prob = st.slider("Eintrittswahrscheinlichkeit (1 = sehr selten … 5 = häufig)", 1, 5, hz.prob, key=f"prob_{hz.id}")
+            hz.sev = st.slider("Schadensschwere (1 = gering … 5 = katastrophal)", 1, 5, hz.sev, key=f"sev_{hz.id}")
+            v, lvl = compute_risk(hz.prob, hz.sev, thresholds)
+            hz.risk_value, hz.risk_level = v, lvl
 
-        st.markdown(f"**Risikosumme:** {v}  —  **Stufe:** :{('green' if lvl=='niedrig' else 'orange' if lvl=='mittel' else 'red')}_circle: {lvl}")
+            st.markdown(f"**Risikosumme:** {v}  —  **Stufe:** :{('green' if lvl=='niedrig' else 'orange' if lvl=='mittel' else 'red')}_circle: {lvl}")
 
-        hz.documentation_note = st.text_area("Beurteilungs-/Dokumentationshinweis", value=hz.documentation_note, key=f"doc_note_{hz.id}")
+            hz.documentation_note = st.text_area("Beurteilungs-/Dokumentationshinweis", value=hz.documentation_note, key=f"doc_note_{hz.id}")
 
     with colB:
         st.markdown("**Schnellübersicht (Top-Risiken)**")
-        top = sorted(assess.hazards, key=lambda x: x.risk_value, reverse=True)[:10]
-        top_df = pd.DataFrame([{"ID":h.id, "Bereich":h.area, "Gefährdung":h.hazard, "Risiko":h.risk_value, "Stufe":h.risk_level} for h in top])
-        st.dataframe(top_df, hide_index=True, use_container_width=True, key="df_top_risks")
+        if assess.hazards:
+            top = sorted(assess.hazards, key=lambda x: x.risk_value, reverse=True)[:10]
+            top_df = pd.DataFrame([{"ID":h.id, "Bereich":h.area, "Gefährdung":h.hazard, "Risiko":h.risk_value, "Stufe":h.risk_level} for h in top])
+            st.dataframe(top_df, hide_index=True, use_container_width=True, key="df_top_risks")
+        else:
+            st.caption("Noch keine Daten.")
 
 # 4 Maßnahmen
 with tabs[3]:
     st.subheader("4) Maßnahmen festlegen (STOP + Q)")
     st.caption("Zuerst an der Quelle vermeiden/vermindern, dann technisch, organisatorisch, PSA – ggf. Qualifikation/Unterweisung ergänzen.")
 
-    sel = st.selectbox(
-        "Gefährdung auswählen",
-        options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-        key="sel_hazard_measures"
-    )
-    hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+    if not assess.hazards:
+        st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
+    else:
+        sel = st.selectbox(
+            "Gefährdung auswählen",
+            options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
+            key="sel_hazard_measures"
+        )
+        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
 
-    with st.expander("➕ Maßnahme hinzufügen"):
-        title = st.text_input("Maßnahme", key=f"m_title_{hz.id}")
-        stop = st.selectbox("STOP(+Q)", STOP_LEVELS, index=0, key=f"m_stop_{hz.id}")
-        responsible = st.text_input("Verantwortlich", key=f"m_resp_{hz.id}")
-        due = st.date_input("Fällig am", value=date.today()+relativedelta(months=1), key=f"m_due_{hz.id}")
-        notes = st.text_area("Hinweis", key=f"m_note_{hz.id}")
-        if st.button("Hinzufügen ➕", key=f"btn_add_measure_{hz.id}"):
-            hz.additional_measures.append(Measure(title=title, stop_level=stop, responsible=responsible, due_date=due.isoformat(), notes=notes))
-            st.success("Maßnahme hinzugefügt.")
+        with st.expander("➕ Maßnahme hinzufügen"):
+            title = st.text_input("Maßnahme", key=f"m_title_{hz.id}")
+            stop = st.selectbox("STOP(+Q)", STOP_LEVELS, index=0, key=f"m_stop_{hz.id}")
+            responsible = st.text_input("Verantwortlich", key=f"m_resp_{hz.id}")
+            due = st.date_input("Fällig am", value=date.today()+relativedelta(months=1), key=f"m_due_{hz.id}")
+            notes = st.text_area("Hinweis", key=f"m_note_{hz.id}")
+            if st.button("Hinzufügen ➕", key=f"btn_add_measure_{hz.id}"):
+                hz.additional_measures.append(Measure(title=title, stop_level=stop, responsible=responsible, due_date=due.isoformat(), notes=notes))
+                st.success("Maßnahme hinzugefügt.")
 
-    if hz.additional_measures:
-        mdf = pd.DataFrame([asdict(m) for m in hz.additional_measures])
-        st.dataframe(mdf, use_container_width=True, hide_index=True, key=f"df_measures_{hz.id}")
+        if hz.additional_measures:
+            mdf = pd.DataFrame([asdict(m) for m in hz.additional_measures])
+            st.dataframe(mdf, use_container_width=True, hide_index=True, key=f"df_measures_{hz.id}")
 
 # 5 Umsetzen
 with tabs[4]:
@@ -814,21 +795,24 @@ with tabs[4]:
 # 6 Wirksamkeit
 with tabs[5]:
     st.subheader("6) Wirksamkeit überprüfen")
-    sel = st.selectbox(
-        "Gefährdung auswählen",
-        options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-        key="sel_hazard_review"
-    )
-    hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
-    if hz.additional_measures:
-        for i, m in enumerate(hz.additional_measures):
-            st.markdown(f"**{i+1}. {m.title}**  ({m.stop_level})")
-            m.status = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(m.status) if m.status in STATUS_LIST else 0, key=f"stat_{hz.id}_{i}")
-            m.notes = st.text_area("Wirksamkeits-/Prüfhinweis", value=m.notes, key=f"notes_{hz.id}_{i}")
+    if not assess.hazards:
+        st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
     else:
-        st.info("Für diese Gefährdung sind noch keine Maßnahmen hinterlegt.")
-    hz.last_review = st.date_input("Datum der Überprüfung", value=date.today(), key=f"rev_date_{hz.id}").isoformat()
-    hz.reviewer = st.text_input("Prüfer/in", value=hz.reviewer, key=f"rev_reviewer_{hz.id}")
+        sel = st.selectbox(
+            "Gefährdung auswählen",
+            options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
+            key="sel_hazard_review"
+        )
+        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+        if hz.additional_measures:
+            for i, m in enumerate(hz.additional_measures):
+                st.markdown(f"**{i+1}. {m.title}**  ({m.stop_level})")
+                m.status = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(m.status) if m.status in STATUS_LIST else 0, key=f"stat_{hz.id}_{i}")
+                m.notes = st.text_area("Wirksamkeits-/Prüfhinweis", value=m.notes, key=f"notes_{hz.id}_{i}")
+        else:
+            st.info("Für diese Gefährdung sind noch keine Maßnahmen hinterlegt.")
+        hz.last_review = st.date_input("Datum der Überprüfung", value=date.today(), key=f"rev_date_{hz.id}").isoformat()
+        hz.reviewer = st.text_input("Prüfer/in", value=hz.reviewer, key=f"rev_reviewer_{hz.id}")
 
 # 7 Dokumentation
 with tabs[6]:
@@ -849,9 +833,9 @@ with tabs[8]:
     high = len([h for h in assess.hazards if h.risk_level in ("hoch", "sehr hoch")])
     st.metric("Gefährdungen gesamt", total)
     st.metric("Davon hoch/sehr hoch", high)
-    by_area = pd.DataFrame(pd.Series([h.area for h in assess.hazards]).value_counts(), columns=["Anzahl"])
-    st.markdown("**Gefährdungen je Bereich**")
-    st.dataframe(by_area, use_container_width=True, key="df_by_area")
-
+    if total:
+        by_area = pd.DataFrame(pd.Series([h.area for h in assess.hazards]).value_counts(), columns=["Anzahl"])
+        st.markdown("**Gefährdungen je Bereich**")
+        st.dataframe(by_area, use_container_width=True, key="df_by_area")
     st.markdown("**Hinweise**")
     assess.measures_plan_note = st.text_area("Projekt-/Maßnahmenplan (kurz)", value=assess.measures_plan_note, key="measures_plan_note")
