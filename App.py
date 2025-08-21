@@ -171,73 +171,436 @@ def from_json(s: str) -> Assessment:
     )
 
 # =========================
-# Vorlagen – Großhotel
+# Vorlagen – Großhotel (fein & mit Starter-Maßnahmen)
 # =========================
 
 TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
     "Küche": [
-        {"activity": "Kochen/Braten/Frittieren", "hazard": "Hitze, Dampf, heiße Flüssigkeiten, Fettbrand",
-         "sources": ["Herde, Öfen, Fritteusen, Salamander, Kippkessel"], "existing": ["Hitzeschutzhandschuhe/Schürzen", "Abdeckungen/Schutzgitter", "Unterweisung Fettbrand (kein Wasser!)"]},
-        {"activity": "Schneiden/Portionieren", "hazard": "Schnitt-/Stichverletzungen",
-         "sources": ["Messer, Schneidmaschinen, Dosenöffner"], "existing": ["Scharfe Messer (weniger Kraftaufwand)", "Schnittschutzhandschuhe nach Bedarf", "Messerschulungen"]},
-        {"activity": "Spülen/Stewarding", "hazard": "Nasse/ölige Böden → Rutschgefahr",
-         "sources": ["Spülküche, Tropfwasser, verschüttetes Fett"], "existing": ["Rutschhemmende Bodenbeläge", "Rutschfeste Schuhe SRA/SRB", "Sofortiges Aufwischen, Warnschilder"]},
-        {"activity": "Reinigung/Desinfektion", "hazard": "Ätz-/Reizwirkung, Chlorgas bei Mischungen",
-         "sources": ["Reinigungs-/Desinfektionsmittel"], "existing": ["Betriebsanweisung & Unterweisung GefStoffV", "Dosiersysteme", "PSA (Hand-/Augenschutz)"]},
-        {"activity": "Warenannahme/Lager", "hazard": "Heben/Tragen schwerer Lasten, Kälte",
-         "sources": ["Kisten, Sackware, Kühl-/TK-Bereiche"], "existing": ["Rollwagen/Hubhilfe", "Grifftechnik/Lastaufteilung", "Kälteschutzkleidung"]}
+        {
+            "activity": "Kochen (Töpfe/Kessel)",
+            "hazard": "Hitze, heiße Flüssigkeiten, Verbrühungen/Verbrennungen",
+            "sources": ["Herde", "Kessel", "Töpfe", "Heißwasser"],
+            "existing": ["Hitzeschutzhandschuhe/-schürzen", "Sichere Griffe/Ablagen", "Unterweisung"],
+            "measures": [
+                {"title": "Topfdeckel-/Spritzschutz konsequent nutzen", "stop_level": "T (Technisch)", "notes": "Spritzschutz reduziert Dampf/Hitzebelastung"},
+                {"title": "Arbeitswege freihalten & ‚Heiß!‘ kommunizieren", "stop_level": "O (Organisatorisch)", "notes": "Teamkommunikation in Stoßzeiten"},
+                {"title": "Hitzeschutzhandschuhe bereitstellen/prüfen", "stop_level": "P (PSA)", "notes": "Kennzeichnung der Größen"},
+                {"title": "Unterweisung Verbrühungs-/Verbrennungsgefahren", "stop_level": "Q (Qualifikation/Unterweisung)", "notes": "Jährlich + bei Neuzugang"}
+            ]
+        },
+        {
+            "activity": "Braten (Pfanne/Grillplatte)",
+            "hazard": "Fettspritzer, Verbrennungen, Rauch/Dämpfe",
+            "sources": ["Bratpfannen", "Grillplatten"],
+            "existing": ["Spritzschutz/Abdeckungen", "Abzugshaube funktionsfähig", "Hitzeschutz"],
+            "measures": [
+                {"title": "Spritzschutz an Grillplatten nachrüsten/verwenden", "stop_level": "T (Technisch)"},
+                {"title": "Abzugshauben reinigen & Luftvolumen prüfen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutz am Arbeitsplatz bereithalten", "stop_level": "P (PSA)"},
+                {"title": "Gefahrstoffe aus Dämpfen thematisieren", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Frittieren",
+            "hazard": "Fettbrand, Verbrennungen, Spritzer",
+            "sources": ["Fritteusen"],
+            "existing": ["Fettbrandlöscher/Löschdecke", "Kein Wasser!", "Unterweisung Fettbrand"],
+            "measures": [
+                {"title": "Fritteusenhauben/Deckel verwenden", "stop_level": "T (Technisch)"},
+                {"title": "Ölwechsel- & Reinigungsplan einführen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutzhandschuhe & Schürzen verpflichtend", "stop_level": "P (PSA)"},
+                {"title": "Fettbrand-Training (Brandklassen, Verhalten)", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Kombidämpfer/Dampfgarer öffnen",
+            "hazard": "Dampf/Heißluft – Verbrühung beim Öffnen",
+            "sources": ["Kombidämpfer", "Dampfgarer"],
+            "existing": ["Tür vorsichtig öffnen", "Hitzeschutz", "Abkühlzeit beachten"],
+            "measures": [
+                {"title": "Türöffnungsroutine (Kipp/Spalt) standardisieren", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hitzeschutzhandschuhe verpflichtend", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: sichere Öffnung/Abdampfen", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Schneiden – Arbeiten mit Messern",
+            "hazard": "Schnitt-/Stichverletzungen",
+            "sources": ["Messer", "Schneidbretter"],
+            "existing": ["Scharfe Messer", "Schnittschutzhandschuhe nach Bedarf", "Messerschulung"],
+            "measures": [
+                {"title": "Messerschärfservice/Schleifplan einführen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schnittschutz-Handschuhe für riskante Schnitte", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Schnitttechnik/Abstellregeln", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Maschinen: Aufschnittmaschine",
+            "hazard": "Schnittverletzungen an rotierenden Klingen",
+            "sources": ["Aufschnittmaschine"],
+            "existing": ["Schutzhauben", "Nur Befugte", "Strom trennen bei Reinigung"],
+            "measures": [
+                {"title": "Sicherheitsbauteile prüfen (Hauben/Not-Aus)", "stop_level": "T (Technisch)"},
+                {"title": "Berechtigungssystem: nur Geschulte bedienen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schnittfeste Handschuhe beim Reinigen", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Reinigung nur stromlos", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Maschinen: Fleischwolf/Gemüseschneider",
+            "hazard": "Eingezogenwerden, Schnittverletzung",
+            "sources": ["Fleischwolf", "Gemüseschneider"],
+            "existing": ["Stopfer benutzen", "Nie mit der Hand nachschieben", "Not-Aus"],
+            "measures": [
+                {"title": "Stopfer/Schutzvorrichtungen verfügbar halten", "stop_level": "T (Technisch)"},
+                {"title": "Betriebsanweisung aushängen/umsetzen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schnittschutzhandschuhe für Reinigungsarbeiten", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Einziehen vermeiden/Not-Aus", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Spülbereich/Stewarding",
+            "hazard": "Heißes Wasser/Dampf, Chemikalien, Rutschgefahr",
+            "sources": ["Spülmaschine", "Klarspüler", "Nasse Böden"],
+            "existing": ["Hand-/Augenschutz", "Rutschhemmende Schuhe", "Boden sofort trockenlegen"],
+            "measures": [
+                {"title": "Anti-Rutsch-Matten/Absaugung an Engstellen", "stop_level": "T (Technisch)"},
+                {"title": "Sofort-Wisch-Regel & Warnschilder", "stop_level": "O (Organisatorisch)"},
+                {"title": "Chemikalienschutzhandschuhe bereitstellen", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Dosierung & CLP-Symbole", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Gasbetriebene Geräte",
+            "hazard": "Gasleck, CO-Bildung, Brand/Explosion",
+            "sources": ["Gasherde", "Leitungen"],
+            "existing": ["Dichtheitsprüfung", "Belüftung/Abzug", "Alarmplan/Löscher"],
+            "measures": [
+                {"title": "Gaswarnmelder installieren/warten", "stop_level": "T (Technisch)"},
+                {"title": "Leckcheck-Plan & Freigabe vor Inbetriebnahme", "stop_level": "O (Organisatorisch)"},
+                {"title": "CO-Erste-Hilfe-Hinweise aushängen", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Warenannahme/Hubwagen",
+            "hazard": "Quetschungen, Heben/Tragen, Verkehrswege",
+            "sources": ["Rollcontainer", "Kisten", "Handhubwagen"],
+            "existing": ["Rollwagen/Hubhilfe", "Hebetechnik", "Wege frei"],
+            "measures": [
+                {"title": "Wege kennzeichnen & freihalten", "stop_level": "O (Organisatorisch)"},
+                {"title": "Kurzunterweisung ‚Heben/Tragen & Hubwagen‘", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Altöl/Müll entsorgen",
+            "hazard": "Verbrennung bei heißem Öl, Schnitt/Infektion",
+            "sources": ["Altölbehälter", "Müllsack"],
+            "existing": ["Abkühlen lassen", "Dichte Behälter"],
+            "measures": [
+                {"title": "Altöl-Transportbehälter mit Deckel", "stop_level": "T (Technisch)"},
+                {"title": "Entsorgungsanweisung (Wege/Zeiten)", "stop_level": "O (Organisatorisch)"},
+                {"title": "Handschutz verpflichtend", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: sichere Entsorgung", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        }
     ],
+
     "Housekeeping": [
-        {"activity": "Zimmerreinigung", "hazard": "Ergonomische Belastung (Bücken, Drehen)",
-         "sources": ["Bettenmachen, Nassreinigung"], "existing": ["Arbeitstechnik/Unterweisung", "Lange Stiele/Höhenverstellung", "Job-Rotation/Wechsel der Tätigkeiten"]},
-        {"activity": "Chemikalienhandling", "hazard": "Haut-/Atemwegsreizungen",
-         "sources": ["Reinigungs-/Desinfektionsmittel"], "existing": ["Hautschutzplan, Handschuhe", "Dosierhilfen, Lüften", "Betriebsanweisung GefStoffV"]},
-        {"activity": "Nadeln/Scherben", "hazard": "Stich-/Schnittverletzungen, Infektionsgefahr",
-         "sources": ["Unsachgemäß entsorgter Abfall"], "existing": ["Stichfeste Handschuhe nach Gefährdung", "Feste Abfallbehälter", "Unterweisung"]}
+        {
+            "activity": "Betten machen",
+            "hazard": "Rücken-/Schulterbelastung, Verdrehungen",
+            "sources": ["Schwere Matratzen", "Beengte Bereiche"],
+            "existing": ["Arbeitstechnik", "Höhenverstellbare Betten/Wagen", "Job-Rotation"],
+            "measures": [
+                {"title": "Stecklaken-/Ecken-Technik schulen", "stop_level": "Q (Qualifikation/Unterweisung)"},
+                {"title": "Leichtere Bettwaren beschaffen", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Arbeitsplatzwechsel im Team planen", "stop_level": "O (Organisatorisch)"}
+            ]
+        },
+        {
+            "activity": "Sanitärreinigung",
+            "hazard": "Chemikalienreizungen, Aerosole",
+            "sources": ["Reiniger/Desinfektion", "Sprühflaschen"],
+            "existing": ["Hautschutzplan", "Hand-/Augenschutz", "Lüften"],
+            "measures": [
+                {"title": "Vordosierte Kartuschen/Schäume statt Sprühnebel", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Dosierstation & Piktogramme am Waschbecken", "stop_level": "T (Technisch)"},
+                {"title": "PSA-Check (Größen, Verfügbarkeit)", "stop_level": "P (PSA)"}
+            ]
+        },
+        {
+            "activity": "Fensterreinigung innen",
+            "hazard": "Sturz, Schnitt an Glas",
+            "sources": ["Fensterfronten", "Tritte/Leitern"],
+            "existing": ["Leiterprüfung", "Standflächen sichern"],
+            "measures": [
+                {"title": "Teleskopstiele statt Leiter (wo möglich)", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Leiterlogin (Prüf- & Benutzregeln) aushängen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schnittfeste Handschuhe bei Bruchgefahr", "stop_level": "P (PSA)"}
+            ]
+        },
+        {
+            "activity": "Abfallentsorgung",
+            "hazard": "Stich-/Schnittverletzungen, Infektionsgefahr",
+            "sources": ["Nadeln", "Scherben"],
+            "existing": ["Stichfeste Handschuhe", "Feste Behälter"],
+            "measures": [
+                {"title": "Sharps-Boxen auf Etagenwagen", "stop_level": "T (Technisch)"},
+                {"title": "Wege/Zeiten für Entsorgung festlegen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung: Nadel-/Scherbenfund", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        }
     ],
+
     "Service/Bar": [
-        {"activity": "Getränke/Heißgetränke", "hazard": "Verbrühungen/Verbrennungen",
-         "sources": ["Kaffeemaschine, Wasserkocher"], "existing": ["Hitzeschutz, sichere Ablagen", "Unterweisung"]},
-        {"activity": "Glas/Porzellan", "hazard": "Schnittverletzungen",
-         "sources": ["Zerbrochenes Geschirr, Polierarbeiten"], "existing": ["Sichere Entsorgung", "Polierhandschuhe nach Bedarf"]},
-        {"activity": "Spätdienst", "hazard": "Psychische Belastung/Umgang mit Gästen",
-         "sources": ["Zeitdruck, Stoßzeiten"], "existing": ["Pausenplanung, Deeskalationstraining"]}
+        {
+            "activity": "Heißgetränke zubereiten",
+            "hazard": "Verbrühungen/Verbrennungen",
+            "sources": ["Kaffeemaschine", "Wasserkocher", "Dampflanze"],
+            "existing": ["Hitzeschutz", "Sichere Ablagen"],
+            "measures": [
+                {"title": "Becher-/Tassenablagen gegen Umkippen sichern", "stop_level": "T (Technisch)"},
+                {"title": "Dampflanzen-Routine (Ablassen vor Nutzung)", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung ‚Verbrühungen vermeiden‘", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "CO₂/Zapfanlage & Flaschenwechsel",
+            "hazard": "Erstickungsgefahr, Hochdruck",
+            "sources": ["CO₂-Flaschen", "Keller"],
+            "existing": ["CO₂-Warner/Lüftung", "Flaschen sichern"],
+            "measures": [
+                {"title": "CO₂-Sensoren mit Alarm testen & dokumentieren", "stop_level": "T (Technisch)"},
+                {"title": "Wechsel nur zu zweit, Freigabe nach Belüftung", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hand-/Augenschutz beim Flaschenwechsel", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Hochdruck & Notfallplan", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Flambieren/Offene Flamme",
+            "hazard": "Brand, Alkoholdämpfe",
+            "sources": ["Brenner", "Spirituosen"],
+            "existing": ["Abstand zu Gästen", "Löschmittel bereit"],
+            "measures": [
+                {"title": "Brennpasten-/Flambiergeräte mit Rückschlagstopp", "stop_level": "T (Technisch)"},
+                {"title": "Freigabe nur für Geschulte, keine Alleinarbeit", "stop_level": "O (Organisatorisch)"},
+                {"title": "Brandverhalten/Einsatz Feuerlöscher trainieren", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        }
     ],
+
     "Technik/Haustechnik": [
-        {"activity": "Instandhaltung/Elektro", "hazard": "Elektrischer Schlag",
-         "sources": ["Defekte Leitungen, Feuchtigkeit"], "existing": ["Elektrofachkraft/EUP", "Freischalten/Sperren/Kennzeichnen", "Prüfung ortsveränderlicher Geräte"]},
-        {"activity": "Leitern/Steiggeräte", "hazard": "Absturz/Sturz",
-         "sources": ["Leitern, Tritte"], "existing": ["Geeignete Auswahl, PSA ggf.", "Unterweisung, Prüfung Leitern/Tritte"]},
-        {"activity": "Heizung/Lüftung", "hazard": "Biostoffe/Legionellen",
-         "sources": ["Warmwasseranlagen"], "existing": ["Wartungsplan, Temperaturen, Dokumentation"]}
+        {
+            "activity": "Elektroarbeiten (E-Fachkräfte/EUP)",
+            "hazard": "Elektrischer Schlag, Lichtbogen",
+            "sources": ["Verteilungen", "Feuchte Bereiche"],
+            "existing": ["Freischalten/Sperren/Kennzeichnen (LOTO)"],
+            "measures": [
+                {"title": "Spannungsprüfer/PSA-Klasse bereitstellen", "stop_level": "T (Technisch)"},
+                {"title": "LOTO-Verfahren verpflichtend dokumentieren", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung: Arbeiten unter Spannung – verboten", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Heißarbeiten (Schweißen/Trennen)",
+            "hazard": "Brand/Explosion, Rauch",
+            "sources": ["Schweißgerät", "Schneidbrenner"],
+            "existing": ["Heißarbeitsgenehmigung", "Feuerwache/Nachkontrolle"],
+            "measures": [
+                {"title": "Funkenschutz/Abschirmungen bereitstellen", "stop_level": "T (Technisch)"},
+                {"title": "Löschmittel/Feuerlöscher in Griffweite", "stop_level": "O (Organisatorisch)"},
+                {"title": "PSA: Schweißerhelm, Handschutz, Kleidung", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Gasführung/Ex-Schutz", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Dach-/Höhenarbeit",
+            "hazard": "Absturz",
+            "sources": ["Dachkanten", "Gerüste"],
+            "existing": ["Absperren", "PSAgA"],
+            "measures": [
+                {"title": "Anschlagpunkte & Rettungsplan prüfen", "stop_level": "T (Technisch)"},
+                {"title": "Zwei-Personen-Regel & Wettercheck", "stop_level": "O (Organisatorisch)"},
+                {"title": "Höhensicherungs-PSA prüfen und zuordnen", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Absturzsicherung/Rettung", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        }
     ],
+
     "Lager/Wareneingang": [
-        {"activity": "Paletten/Rollis", "hazard": "Anfahren/Quetschen/Stolpern",
-         "sources": ["Handhubwagen, enge Wege"], "existing": ["Verkehrswege kennzeichnen/frei", "Fahr-/Abstellregeln"]},
-        {"activity": "Kühl-/TK-Lager", "hazard": "Kälte, Ausrutschen",
-         "sources": ["Eis/Feuchtigkeit"], "existing": ["Kälteschutz, rutschhemmende Sohlen", "Eis entfernen"]}
+        {
+            "activity": "Auspacken/Öffnen",
+            "hazard": "Schnittverletzungen, Stolpern",
+            "sources": ["Cuttermesser", "Folien/Umreifungen"],
+            "existing": ["Sichere Messer", "Müll sofort entsorgen"],
+            "measures": [
+                {"title": "Sicherheitsmesser (autom. Klingenrückzug)", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Ablageflächen für Kartonagen", "stop_level": "T (Technisch)"},
+                {"title": "Müll-Station nahe Rampe definieren", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung: Messerführung/Grifftechnik", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Palettieren/Bewegen",
+            "hazard": "Quetschungen, Anfahren",
+            "sources": ["Rollcontainer", "Hubwagen"],
+            "existing": ["Wege markieren", "Langsam fahren"],
+            "measures": [
+                {"title": "Anschläge/Stopper an Rampen", "stop_level": "T (Technisch)"},
+                {"title": "Verkehrsordnung (Vorfahrt/Signal) aushängen", "stop_level": "O (Organisatorisch)"}
+            ]
+        },
+        {
+            "activity": "Einlagern/Greifhöhen",
+            "hazard": "Überlastung Rücken/Schulter",
+            "sources": ["Hohes Regal", "Schwere Kisten"],
+            "existing": ["Leitern/Tritte geprüft", "Rollwagen"],
+            "measures": [
+                {"title": "Schwere Ware zwischen Knie-/Schulterhöhe", "stop_level": "O (Organisatorisch)"},
+                {"title": "Hebehilfe (Lifter) prüfen/anwenden", "stop_level": "T (Technisch)"},
+                {"title": "Ergonomie-Kurztraining", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Kohlenstoffdioxid/Kälte TK",
+            "hazard": "Kälte, Rutschgefahr",
+            "sources": ["Eis/Kondenswasser", "TK-Zonen"],
+            "existing": ["Kälteschutz", "Rutschhemmung"],
+            "measures": [
+                {"title": "Antirutsch-Matten & Eis entfernen", "stop_level": "T (Technisch)"},
+                {"title": "Aufenthaltsdauer in TK begrenzen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Kälteschutzkleidung Pflicht", "stop_level": "P (PSA)"}
+            ]
+        }
     ],
+
     "Spa/Wellness": [
-        {"activity": "Pooltechnik/Chemie", "hazard": "Gefahrstoffe (Chlor, pH-Regulatoren)",
-         "sources": ["Dosieranlage, Lager"], "existing": ["GefStoffV/CLP Kennzeichnung", "Augendusche/PSA", "Lüftung/Alarmplan"]},
-        {"activity": "Nasse Bereiche", "hazard": "Rutschgefahr",
-         "sources": ["Boden/Barfußbereich"], "existing": ["Rutschhemmung, Reinigungskonzept", "Hinweisschilder"]}
+        {
+            "activity": "Sauna/Ofen & Aufguss",
+            "hazard": "Verbrennungen, Brand, Heißdampf",
+            "sources": ["Saunaöfen", "Aufguss"],
+            "existing": ["Abschirmungen", "Nur Befugte"],
+            "measures": [
+                {"title": "Ofenschutzgitter/Temperaturwächter prüfen", "stop_level": "T (Technisch)"},
+                {"title": "Aufguss nur nach festen Regeln/Zeiten", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung: Notfall/Überhitzung", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Pooltechnik/Chemie",
+            "hazard": "Gefahrstoffe (Chlor, pH-Regulatoren), Gasfreisetzung",
+            "sources": ["Dosier-/Lagerräume"],
+            "existing": ["Lüftung/Absaugung", "Augendusche"],
+            "measures": [
+                {"title": "Chemikalienlager: Auffangwannen/Trennung", "stop_level": "T (Technisch)"},
+                {"title": "Freigabe erst nach Gaswarner-Check", "stop_level": "O (Organisatorisch)"},
+                {"title": "PSA: Atem-/Hand-/Augenschutz vorhalten", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: TRGS/CLP & Notfallkarten", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Nassbereiche",
+            "hazard": "Rutsch-/Sturzgefahr",
+            "sources": ["Fliesen", "Wasser"],
+            "existing": ["Rutschhemmung", "Reinigungskonzept"],
+            "measures": [
+                {"title": "Rutschhemmende Matten/Beläge prüfen", "stop_level": "T (Technisch)"},
+                {"title": "Sofort-Wisch-Regel & Sperrung bei Nässe", "stop_level": "O (Organisatorisch)"}
+            ]
+        }
     ],
+
     "Rezeption": [
-        {"activity": "Front Office", "hazard": "Psychische Faktoren/Arbeitszeitgestaltung",
-         "sources": ["Schicht/Nacht, Gästekontakt"], "existing": ["Dienstplanqualität, Pausen", "Rückzugsmöglichkeit, Schulung Kommunikation"]}
+        {
+            "activity": "Front Office/Gästekommunikation",
+            "hazard": "Psychische Belastung, Konflikte",
+            "sources": ["Beschwerden", "Stoßzeiten"],
+            "existing": ["Deeskalationstraining", "Pausenplanung"],
+            "measures": [
+                {"title": "Rückzugsplatz/Backoffice definieren", "stop_level": "T (Technisch)"},
+                {"title": "Stoßzeiten doppelt besetzen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Training: Konflikt/Deeskalation", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Nacht-/Alleinarbeit",
+            "hazard": "Überfall/Bedrohung, Ermüdung",
+            "sources": ["Späte Schichten"],
+            "existing": ["Alarmtaster/Video nach Risiko"],
+            "measures": [
+                {"title": "Stillen Alarm testen & dokumentieren", "stop_level": "T (Technisch)"},
+                {"title": "Zwei-Personen-Regel nach Gefährdung", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schicht-/Pausenmanagement optimieren", "stop_level": "O (Organisatorisch)"},
+                {"title": "Unterweisung: Verhalten bei Überfall", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        }
     ],
+
     "Verwaltung": [
-        {"activity": "Bildschirmarbeit", "hazard": "Ergonomische Belastung, Augenbelastung",
-         "sources": ["Monitore, Sitzhaltung"], "existing": ["Ergonomie-Check, Sehhilfeangebot, Kurzpausen"]}
+        {
+            "activity": "Bildschirmarbeit",
+            "hazard": "Haltungs-/Augenbelastung",
+            "sources": ["Sitzplätze", "Monitore"],
+            "existing": ["Angepasster Arbeitsplatz", "Höhenverstellbarer Tisch/Stuhl"],
+            "measures": [
+                {"title": "Monitore ergonomisch anordnen (Höhe/Abstand)", "stop_level": "T (Technisch)"},
+                {"title": "20-20-20-Regel & Mikropausen einführen", "stop_level": "O (Organisatorisch)"},
+                {"title": "Sehtest/Bildschirmbrille anbieten", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Drucker/Tonerwechsel",
+            "hazard": "Feinstaub, Hautkontakt",
+            "sources": ["Toner", "Drucker"],
+            "existing": ["Lüftung", "Handschutz"],
+            "measures": [
+                {"title": "Wechselhandschuhe/Abfallbeutel bereitlegen", "stop_level": "T (Technisch)"},
+                {"title": "Wechsel nur in gut belüftetem Raum", "stop_level": "O (Organisatorisch)"}
+            ]
+        }
     ],
+
     "Außenbereiche": [
-        {"activity": "Winterdienst", "hazard": "Rutsch-/Sturz",
-         "sources": ["Eis/Schnee"], "existing": ["Räum-/Streuplan, Schuhe, Beleuchtung"]}
-    ],
+        {
+            "activity": "Gartenpflege/Mähen",
+            "hazard": "Projektilwurf, Lärm",
+            "sources": ["Rasenmäher/Trimmer"],
+            "existing": ["Schutzbrille", "Gehörschutz"],
+            "measures": [
+                {"title": "Stein-/Fremdkörperkontrolle vor Start", "stop_level": "O (Organisatorisch)"},
+                {"title": "Schutzvisier/Gehörschutz bereitstellen", "stop_level": "P (PSA)"}
+            ]
+        },
+        {
+            "activity": "Hecken-/Baumschnitt",
+            "hazard": "Schnittverletzung, Absturz",
+            "sources": ["Heckenschere", "Leiter"],
+            "existing": ["Leiter sichern", "Zwei-Personen-Regel"],
+            "measures": [
+                {"title": "Teleskopgeräte statt Leiter (wo möglich)", "stop_level": "S (Substitution/Quelle entfernen)"},
+                {"title": "Anseilschutz/PSAgA bei Höhe einsetzen", "stop_level": "P (PSA)"},
+                {"title": "Unterweisung: Motorsense/Heckenschere", "stop_level": "Q (Qualifikation/Unterweisung)"}
+            ]
+        },
+        {
+            "activity": "Winterdienst",
+            "hazard": "Rutschen, Kälte",
+            "sources": ["Eis/Schnee"],
+            "existing": ["Räum-/Streuplan"],
+            "measures": [
+                {"title": "Rutschhemmende Spikes/Schuhe", "stop_level": "P (PSA)"},
+                {"title": "Frühstartplan & Prioritätswege", "stop_level": "O (Organisatorisch)"}
+            ]
+        }
+    ]
 }
 
+# =========================
+# Vorladen inkl. Starter-Maßnahmen
+# =========================
+
 def preload_template(assess: Assessment):
+    # Lädt alle TEMPLATES inkl. optionaler Start-Maßnahmen (item["measures"])
     for area, items in TEMPLATES.items():
         for item in items:
             hz = Hazard(
@@ -245,9 +608,16 @@ def preload_template(assess: Assessment):
                 area=area,
                 activity=item["activity"],
                 hazard=item["hazard"],
-                sources=item["sources"],
-                existing_controls=item["existing"]
+                sources=item.get("sources", []),
+                existing_controls=item.get("existing", [])
             )
+            # Optionale initiale Maßnahmen hinzufügen
+            for m in item.get("measures", []):
+                hz.additional_measures.append(Measure(
+                    title=m["title"],
+                    stop_level=m["stop_level"],
+                    notes=m.get("notes", "")
+                ))
             assess.hazards.append(hz)
 
 # =========================
