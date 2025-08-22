@@ -176,7 +176,7 @@ def split_hazard_text(text: str) -> List[str]:
     return uniq or [text.strip()]
 
 # =========================
-# Branchen-Bibliothek (ERWEITERT, UNGEKÜRZT)
+# Branchen-Bibliothek (ERWEITERT)
 # =========================
 
 def M(title, stop="O (Organisatorisch)"):
@@ -189,7 +189,7 @@ LIB_HOTEL = {
         {"activity": "Braten (Pfanne/Grillplatte)", "hazard": "Fettspritzer, Verbrennungen, Rauch/Dämpfe", "sources": ["Pfannen","Grillplatten"], "existing": ["Abzug"], "measures":[M("Spritzschutz einsetzen","T (Technisch)"), M("Haube reinigen/prüfen")]},
         {"activity": "Frittieren", "hazard": "Fettbrand, Verbrennungen, Spritzer", "sources": ["Fritteusen"], "existing": ["Fettbrandlöscher"], "measures":[M("Ölwechsel-/Reinigungsplan"), M("Hitzeschutzschürze & Handschuhe","P (PSA)")]},
         {"activity": "Kombidämpfer öffnen", "hazard": "Dampf/Heißluft – Verbrühung beim Öffnen", "sources": ["Kombidämpfer"], "existing": ["Abkühlzeit"], "measures":[M("Tür erst spaltweise öffnen"), M("Hitzeschutzhandschuhe","P (PSA)")]},
-        {"activity": "Saucen/Reduktionen", "hazard": "Dampf, Spritzer, inhalative Belastung", "sources": ["Reduktion"], "existing": ["Abluft"], "measures":[M("Deckel/Spritzschutz","T (Technisch)") , M("Lüftung checken")]},
+        {"activity": "Saucen/Reduktionen", "hazard": "Dampf, Spritzer, inhalative Belastung", "sources": ["Reduktion"], "existing": ["Abluft"], "measures":[M("Deckel/Spritzschutz","T (Technisch)"), M("Lüftung checken")]},
         {"activity": "Schneiden mit Messern", "hazard": "Schnitt-/Stichverletzungen", "sources": ["Messer"], "existing": ["Scharfe Messer"], "measures":[M("Schleifplan"), M("Schnittschutzhandschuhe bei Bedarf","P (PSA)")]},
         {"activity": "Aufschnittmaschine", "hazard": "Schnittverletzungen an rotierenden Klingen", "sources": ["Aufschnitt"], "existing": ["Schutzhaube","Not-Aus"], "measures":[M("Sicherheitsbauteile prüfen","T (Technisch)"), M("Nur befugte Bedienung")]},
         {"activity": "Fleischwolf/Gemüseschneider", "hazard": "Eingezogenwerden, Schnittverletzung", "sources": ["Wolf","Gemüseschneider"], "existing": ["Stopfer"], "measures":[M("Stopfer verwenden"), M("Unterweisung Not-Aus","Q (Qualifikation/Unterweisung)")]},
@@ -219,7 +219,7 @@ LIB_HOTEL = {
     "Technik/Haustechnik": [
         {"activity":"Elektroarbeiten (EUP/EFK)","hazard":"Elektrischer Schlag, Lichtbogen","sources":["Verteilungen"],"existing":["LOTO"],"measures":[M("LOTO-Verfahren dokumentieren"),M("PSA+Prüfer anwenden","T (Technisch)")]},
         {"activity":"Heißarbeiten (Schweißen/Trennen)","hazard":"Brand/Explosion, Rauch","sources":["Schweißgerät"],"existing":["Genehmigung","Feuerwache"],"measures":[M("Funkenschutz","T (Technisch)"),M("Nachkontrolle")]},
-        {"activity":"Dach-/Höhenarbeit","hazard":"Absturz","sources":["Dachkanten"],"existing":["PSAgA"],"measures":[M("Anschlagpunkte prüfen","T (Technisch)"),M("Rettungsplan")]},
+        {"activity":"Dach-/Höhenarbeit","hazard":"Absturz","sources":["Dachkanten"],"existing":["PSAgA"],"measures":[M("Anschlagpunkte prüfen","T (Technisch)"),"Rettungsplan"]},
     ],
     "Lager/Wareneingang": [
         {"activity":"Auspacken/Öffnen","hazard":"Schnittverletzungen, Stolpern","sources":["Cutter","Umreifungen"],"existing":["Sichere Messer"],"measures":[M("Sicherheitsmesser einsetzen","S (Substitution/Quelle entfernen)"),M("Müll-Station nahe Rampe")]},
@@ -383,7 +383,7 @@ LIB_EIS = {
 LIB_EVENT = {
     "Vorbereitung/Produktion": [
         {"activity":"Mise en place/Kochen vor Ort","hazard":"Verbrennung/Verbrühung, Elektrik mobil","sources":["Induktionsfelder","Gasbrenner"],"existing":["E-Check mobil"],"measures":[M("Zuleitungen sichern"),M("Feuerlöscher bereit")]},
-        {"activity":"Verladen/Transport","hazard":"Quetschung/Heben/Tragen","sources":["Kisten","GN-Behälter"],"existing":["Rollwagen"],"measures":[M("Ladungssicherung")]}
+        {"activity":"Verladen/Transport","hazard":"Quetschung/Heben/Tragen","sources":["Kisten","GN-Behälter"],"existing":["Rollwagen"],"measures":[M("Ladungssicherung")]},
     ],
     "Aufbau/Betrieb": [
         {"activity":"Zelte/Provisorien","hazard":"Wind/Absturz/Stolpern","sources":["Zelt","Kabel"],"existing":["Abspannung","Kabelbrücken"],"measures":[M("Abnahme/Prüfbuch Zelt/Aggregat")]},
@@ -542,13 +542,14 @@ with st.sidebar:
     sector = st.selectbox("Branche", options=options, index=default_idx, key="sel_industry")
     st.caption(f"Aktuell geladen: **{assess.industry}**")
 
-    # Option: Multi-Gefährdungen automatisch splitten
+    # --- Optionen ---
     st.markdown("---")
     st.subheader("Optionen")
-    st.session_state.opt_split_multi_hazards = st.checkbox(
+    if "opt_split_multi_hazards" not in st.session_state:
+        st.session_state["opt_split_multi_hazards"] = True
+    st.checkbox(
         "Mehrfach-Gefährdungen einer Tätigkeit automatisch auftrennen (1 Tätigkeit → 1 Gefährdung pro Eintrag)",
-        value=st.session_state.get("opt_split_multi_hazards", True),
-        key="opt_split_multi_hazards"
+        key="opt_split_multi_hazards",
     )
 
     # Optional: Automatisches Nachladen bei Branchenwechsel
@@ -625,7 +626,7 @@ tabs = st.tabs([
 # 0 Vorlagen auswählen
 with tabs[0]:
     st.subheader("0) Vorlagen auswählen (Tätigkeiten/Gefährdungen per Häkchen übernehmen)")
-    st.caption("Branche wählen, filtern, Häkchen setzen, dann übernehmen. Hinweis: Mehrfach-Gefährdungen werden – wenn Option aktiv – automatisch in Einzel-Gefährdungen getrennt.")
+    st.caption("Branche wählen, filtern, Häkchen setzen, dann übernehmen. Mehrfach-Gefährdungen werden – wenn Option aktiv – automatisch in Einzel-Gefährdungen getrennt.")
 
     lib = INDUSTRY_LIBRARY.get(sector, {})
     all_areas = list(lib.keys())
