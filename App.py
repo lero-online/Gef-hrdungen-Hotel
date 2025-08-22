@@ -219,7 +219,7 @@ LIB_HOTEL = {
     "Technik/Haustechnik": [
         {"activity":"Elektroarbeiten (EUP/EFK)","hazard":"Elektrischer Schlag, Lichtbogen","sources":["Verteilungen"],"existing":["LOTO"],"measures":[M("LOTO-Verfahren dokumentieren"),M("PSA+Prüfer anwenden","T (Technisch)")]},
         {"activity":"Heißarbeiten (Schweißen/Trennen)","hazard":"Brand/Explosion, Rauch","sources":["Schweißgerät"],"existing":["Genehmigung","Feuerwache"],"measures":[M("Funkenschutz","T (Technisch)"),M("Nachkontrolle")]},
-        {"activity":"Dach-/Höhenarbeit","hazard":"Absturz","sources":["Dachkanten"],"existing":["PSAgA"],"measures":[M("Anschlagpunkte prüfen","T (Technisch)"),"Rettungsplan"]},
+        {"activity":"Dach-/Höhenarbeit","hazard":"Absturz","sources":["Dachkanten"],"existing":["PSAgA"],"measures":[M("Anschlagpunkte prüfen","T (Technisch)"), "Rettungsplan"]},  # String absichtlich: wird robust verarbeitet
     ],
     "Lager/Wareneingang": [
         {"activity":"Auspacken/Öffnen","hazard":"Schnittverletzungen, Stolpern","sources":["Cutter","Umreifungen"],"existing":["Sichere Messer"],"measures":[M("Sicherheitsmesser einsetzen","S (Substitution/Quelle entfernen)"),M("Müll-Station nahe Rampe")]},
@@ -238,7 +238,7 @@ LIB_HOTEL = {
         {"activity":"Bildschirm/Kasse","hazard":"Ergonomie, Augenbelastung","sources":["Monitore"],"existing":["Ergonomiecheck"],"measures":[M("20-20-20-Regel & Mikropausen"),M("Sehtest/Bildschirmbrille","Q (Qualifikation/Unterweisung)")]},
     ],
     "Verwaltung": [
-        {"activity":"Bildschirmarbeit","hazard":"Haltungs-/Augenbelastung","sources":["Sitzplätze","Monitore"],"existing":["Höhenverstellbar"],"measures":[M("Monitorhöhe/Abstand einstellen","T (Technisch)"),M("Mikropausenregelung")]},
+        {"activity":"Bildschirmarbeit","hazard":"Haltungs-/Augenbelastung","sources":["Sitzplätze","Monitore"],"existing":["Höhenverstellbar"],"measures":[M("Monitorhöhe/Abstand einstellen","T (Technisch)"),"Mikropausenregelung"]},
         {"activity":"Laserdrucker/Toner","hazard":"Feinstaub, Hautkontakt","sources":["Tonerwechsel"],"existing":["Lüftung"],"measures":[M("Wechselhandschuhe/Abfallbeutel","T (Technisch)")]},
     ],
     "Außenbereiche": [
@@ -457,9 +457,27 @@ def add_template_items(
     industry_name: Optional[str] = None,
     split_multi: Optional[bool] = None
 ):
-    """Fügt Items aus einer Branchenvorlage hinzu. Optional: Multi-Gefährdungen splitten."""
+    """Fügt Items aus einer Branchenvorlage hinzu.
+    Robust: akzeptiert measures sowohl als Dicts (via M(...)) als auch als Strings.
+    Optional: Multi-Gefährdungen splitten.
+    """
     if split_multi is None:
         split_multi = st.session_state.get("opt_split_multi_hazards", True)
+
+    DEFAULT_STOP = "O (Organisatorisch)"
+
+    def normalize_measure(m: Any) -> Optional[Measure]:
+        if isinstance(m, dict):
+            return Measure(
+                title=(m.get("title") or "").strip(),
+                stop_level=m.get("stop_level", DEFAULT_STOP),
+                notes=m.get("notes", "")
+            )
+        elif isinstance(m, str):
+            t = m.strip()
+            return Measure(title=t, stop_level=DEFAULT_STOP) if t else None
+        else:
+            return None
 
     for area, items in template.items():
         for item in items:
@@ -467,16 +485,22 @@ def add_template_items(
             if selected_keys is not None and key not in selected_keys:
                 continue
 
-            hazards_list = split_hazard_text(item.get("hazard","")) if split_multi else [item.get("hazard","")]
+            hazard_text = item.get("hazard", "")
+            hazards_list = split_hazard_text(hazard_text) if split_multi else [hazard_text]
+
             for hz_text in hazards_list:
                 hz = Hazard(
-                    id=new_id(), area=area, activity=item["activity"], hazard=hz_text,
-                    sources=item.get("sources", []), existing_controls=item.get("existing", [])
+                    id=new_id(),
+                    area=area,
+                    activity=item.get("activity", ""),
+                    hazard=hz_text,
+                    sources=item.get("sources", []) or [],
+                    existing_controls=item.get("existing", []) or []
                 )
-                for m in item.get("measures", []):
-                    hz.additional_measures.append(Measure(
-                        title=m["title"], stop_level=m["stop_level"], notes=m.get("notes","")
-                    ))
+                for m in item.get("measures", []) or []:
+                    mm = normalize_measure(m)
+                    if mm and mm.title:
+                        hz.additional_measures.append(mm)
                 assess.hazards.append(hz)
 
 def preload_industry(assess: Assessment, industry_name: str, replace: bool = True):
