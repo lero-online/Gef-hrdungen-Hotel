@@ -157,20 +157,34 @@ def from_json(s: str) -> Assessment:
     for h in data.get("hazards", []):
         measures = [Measure(**m) for m in h.get("additional_measures", [])]
         hazards.append(Hazard(
-            id=h["id"], area=h["area"], activity=h["activity"], hazard=h["hazard"],
-            sources=h.get("sources", []), existing_controls=h.get("existing_controls", []),
-            prob=h.get("prob", 3), sev=h.get("sev", 3), risk_value=h.get("risk_value", 9),
-            risk_level=h.get("risk_level", "mittel"), additional_measures=measures,
-            last_review=h.get("last_review"), reviewer=h.get("reviewer", ""),
+            id=h["id"],
+            area=h["area"],
+            activity=h["activity"],
+            hazard=h["hazard"],
+            sources=h.get("sources", []),
+            # rückwärtskompatibel: "existing" oder "existing_controls"
+            existing_controls=h.get("existing_controls", h.get("existing", [])),
+            prob=h.get("prob", 3),
+            sev=h.get("sev", 3),
+            risk_value=h.get("risk_value", 9),
+            risk_level=h.get("risk_level", "mittel"),
+            additional_measures=measures,
+            last_review=h.get("last_review"),
+            reviewer=h.get("reviewer", ""),
             documentation_note=h.get("documentation_note", "")
         ))
     return Assessment(
-        company=data.get("company",""), location=data.get("location",""), created_at=data.get("created_at",""),
-        created_by=data.get("created_by",""), industry=data.get("industry","Hotel/Gastgewerbe"),
+        company=data.get("company",""),
+        location=data.get("location",""),
+        created_at=data.get("created_at",""),
+        created_by=data.get("created_by",""),
+        industry=data.get("industry","Hotel/Gastgewerbe"),
         scope_note=data.get("scope_note", ""),
         risk_matrix_thresholds=data.get("risk_matrix_thresholds", {"thresholds":[6,12,16]}),
-        hazards=hazards, measures_plan_note=data.get("measures_plan_note",""),
-        documentation_note=data.get("documentation_note",""), next_review_hint=data.get("next_review_hint","")
+        hazards=hazards,
+        measures_plan_note=data.get("measures_plan_note",""),
+        documentation_note=data.get("documentation_note",""),
+        next_review_hint=data.get("next_review_hint","")
     )
 
 # =========================
@@ -484,7 +498,6 @@ LIB_FLEISCHEREI = {
 }
 
 LIB_KANTINE = {
-    # ähnlich Hotelküche + Spülstraße/Transport
     "Küche": [
         {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed. je nach Modell"],"measures":[
             {"title":"Kipp-Prozess standardisieren","stop_level":"O (Organisatorisch)"}]},
@@ -566,8 +579,8 @@ def preload_industry(assess: Assessment, industry_name: str, replace: bool = Tru
 
 st.set_page_config(page_title="Gefährdungsbeurteilung – Branchen (BGN)", layout="wide")
 
-# Session initialisieren
-if "assessment" not in st.session_state:
+# Session initialisieren (robust)
+if "assessment" not in st.session_state or st.session_state.get("assessment") is None:
     st.session_state.assessment = Assessment(
         company="Musterbetrieb GmbH",
         location="Beispielstadt",
@@ -602,7 +615,34 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("Branche wählen")
-    sector = st.selectbox("Branche", options=list(INDUSTRY_LIBRARY.keys()), index=list(INDUSTRY_LIBRARY.keys()).index(assess.industry) if assess.industry in INDUSTRY_LIBRARY else 0, key="sel_industry")
+
+    # --- Branchenwahl robust ---
+    options = list(INDUSTRY_LIBRARY.keys())
+    # Assessment aus Session holen/absichern
+    assess_tmp = st.session_state.get("assessment", None)
+    if assess_tmp is None:
+        st.session_state.assessment = Assessment(
+            company="Musterbetrieb GmbH",
+            location="Beispielstadt",
+            created_at=date.today().isoformat(),
+            created_by="HSE/SiFa",
+            industry="Hotel/Gastgewerbe",
+        )
+        preload_industry(st.session_state.assessment, "Hotel/Gastgewerbe", replace=True)
+        assess_tmp = st.session_state.assessment
+
+    current_industry = getattr(assess_tmp, "industry", None) or "Hotel/Gastgewerbe"
+    try:
+        default_idx = options.index(current_industry) if current_industry in INDUSTRY_LIBRARY else 0
+    except Exception:
+        default_idx = 0
+
+    sector = st.selectbox(
+        "Branche",
+        options=options,
+        index=default_idx,
+        key="sel_industry"
+    )
     st.caption(f"Aktuell geladen: **{assess.industry}**")
 
     c1, c2 = st.columns(2)
@@ -641,6 +681,9 @@ with st.sidebar:
     if up is not None:
         content = up.read().decode("utf-8")
         st.session_state.assessment = from_json(content)
+        # Fallbacks für alte JSONs:
+        if not getattr(st.session_state.assessment, "industry", None):
+            st.session_state.assessment.industry = "Hotel/Gastgewerbe"
         st.success("Beurteilung geladen.")
         st.rerun()
 
