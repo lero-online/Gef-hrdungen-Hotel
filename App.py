@@ -158,8 +158,25 @@ def slug(*parts: str) -> str:
     s = re.sub(r"[^a-zA-Z0-9_-]+", "_", s)
     return s[:80]
 
+# ===== Splitting für Mehrfach-Gefährdungen =====
+
+_SPLIT_PATTERN = re.compile(r"\s*(?:,|/| und | & )\s*")
+
+def split_hazard_text(text: str) -> List[str]:
+    """Teilt 'Gefährdung' auf: Trennzeichen Komma, Slash, 'und', '&'."""
+    if not text:
+        return []
+    parts = [p.strip() for p in _SPLIT_PATTERN.split(text) if p and p.strip()]
+    # Duplikate eliminieren, Reihenfolge beibehalten
+    seen, uniq = set(), []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            uniq.append(p)
+    return uniq or [text.strip()]
+
 # =========================
-# Branchen-Bibliothek (erweitert)
+# Branchen-Bibliothek (ERWEITERT, UNGEKÜRZT)
 # =========================
 
 def M(title, stop="O (Organisatorisch)"):
@@ -433,22 +450,34 @@ INDUSTRY_LIBRARY: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
 # Vorlagen laden/auswählen
 # =========================
 
-def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]],
-                       selected_keys: Optional[List[str]] = None, industry_name: Optional[str] = None):
+def add_template_items(
+    assess: Assessment,
+    template: Dict[str, List[Dict[str, Any]]],
+    selected_keys: Optional[List[str]] = None,
+    industry_name: Optional[str] = None,
+    split_multi: Optional[bool] = None
+):
+    """Fügt Items aus einer Branchenvorlage hinzu. Optional: Multi-Gefährdungen splitten."""
+    if split_multi is None:
+        split_multi = st.session_state.get("opt_split_multi_hazards", True)
+
     for area, items in template.items():
         for item in items:
             key = template_item_key(industry_name or assess.industry, area, item)
             if selected_keys is not None and key not in selected_keys:
                 continue
-            hz = Hazard(
-                id=new_id(), area=area, activity=item["activity"], hazard=item["hazard"],
-                sources=item.get("sources", []), existing_controls=item.get("existing", [])
-            )
-            for m in item.get("measures", []):
-                hz.additional_measures.append(Measure(
-                    title=m["title"], stop_level=m["stop_level"], notes=m.get("notes","")
-                ))
-            assess.hazards.append(hz)
+
+            hazards_list = split_hazard_text(item.get("hazard","")) if split_multi else [item.get("hazard","")]
+            for hz_text in hazards_list:
+                hz = Hazard(
+                    id=new_id(), area=area, activity=item["activity"], hazard=hz_text,
+                    sources=item.get("sources", []), existing_controls=item.get("existing", [])
+                )
+                for m in item.get("measures", []):
+                    hz.additional_measures.append(Measure(
+                        title=m["title"], stop_level=m["stop_level"], notes=m.get("notes","")
+                    ))
+                assess.hazards.append(hz)
 
 def preload_industry(assess: Assessment, industry_name: str, replace: bool = True):
     assess.industry = industry_name
@@ -513,7 +542,18 @@ with st.sidebar:
     sector = st.selectbox("Branche", options=options, index=default_idx, key="sel_industry")
     st.caption(f"Aktuell geladen: **{assess.industry}**")
 
+    # Option: Multi-Gefährdungen automatisch splitten
+    st.markdown("---")
+    st.subheader("Optionen")
+    st.session_state.opt_split_multi_hazards = st.checkbox(
+        "Mehrfach-Gefährdungen einer Tätigkeit automatisch auftrennen (1 Tätigkeit → 1 Gefährdung pro Eintrag)",
+        value=st.session_state.get("opt_split_multi_hazards", True),
+        key="opt_split_multi_hazards"
+    )
+
     # Optional: Automatisches Nachladen bei Branchenwechsel
+    st.markdown("---")
+    st.caption("Automatisches Laden beim Branchenwechsel (optional)")
     if "last_sector" not in st.session_state:
         st.session_state.last_sector = sector
     elif st.session_state.last_sector != sector:
@@ -526,6 +566,7 @@ with st.sidebar:
         st.rerun()
 
     # --- Schnell-Laden der Branchenvorlage in der Sidebar ---
+    st.markdown("---")
     st.markdown("**Schnell laden:**")
     c_load1, c_load2 = st.columns(2)
     with c_load1:
@@ -584,7 +625,7 @@ tabs = st.tabs([
 # 0 Vorlagen auswählen
 with tabs[0]:
     st.subheader("0) Vorlagen auswählen (Tätigkeiten/Gefährdungen per Häkchen übernehmen)")
-    st.caption("Branche wählen, filtern, Häkchen setzen, dann übernehmen.")
+    st.caption("Branche wählen, filtern, Häkchen setzen, dann übernehmen. Hinweis: Mehrfach-Gefährdungen werden – wenn Option aktiv – automatisch in Einzel-Gefährdungen getrennt.")
 
     lib = INDUSTRY_LIBRARY.get(sector, {})
     all_areas = list(lib.keys())
@@ -636,17 +677,17 @@ with tabs[0]:
         if st.button("➕ Ausgewählte übernehmen (ANHÄNGEN)", key="btn_apply_append"):
             selected = [k for k, v in st.session_state.template_checks.items() if v]
             add_template_items(assess, lib, selected_keys=selected, industry_name=sector)
-            st.success(f"{len(selected)} Einträge hinzugefügt.")
+            st.success(f"{len(selected)} Aktivitäten übernommen (Mehrfach-Gefährdungen ggf. aufgetrennt).")
     with col2:
         if st.button("🧹 Ausgewählte übernehmen (ERSETZEN)", key="btn_apply_replace"):
             selected = [k for k, v in st.session_state.template_checks.items() if v]
             assess.hazards = []
             add_template_items(assess, lib, selected_keys=selected, industry_name=sector)
             assess.industry = sector
-            st.success(f"Vorlage ersetzt. {len(selected)} Einträge übernommen.")
+            st.success(f"Vorlage ersetzt. {len(selected)} Aktivitäten übernommen (Mehrfach-Gefährdungen ggf. aufgetrennt).")
             st.rerun()
 
-    # NEU: komplette Vorlage ohne Auswahl übernehmen (ERSETZEN)
+    # komplette Vorlage ohne Auswahl übernehmen (ERSETZEN)
     st.markdown("---")
     if st.button("📦 Komplette Branchenvorlage übernehmen (ERSETZEN) – ohne Auswahl", key="btn_full_template_replace"):
         assess.hazards = []
@@ -654,7 +695,7 @@ with tabs[0]:
         assess.industry = sector
         if "template_checks" in st.session_state:
             st.session_state.template_checks = {}
-        st.success(f"Komplette Vorlage '{sector}' geladen.")
+        st.success(f"Komplette Vorlage '{sector}' geladen (Mehrfach-Gefährdungen ggf. aufgetrennt).")
         st.rerun()
 
 # 1 Vorbereiten
@@ -675,7 +716,7 @@ with tabs[1]:
 with tabs[2]:
     st.subheader("2) Gefährdungen ermitteln")
 
-    # NEU: Fallback-Start, wenn noch nichts geladen
+    # Fallback-Start, wenn noch nichts geladen
     if not assess.hazards:
         st.warning("Noch keine Gefährdungen vorhanden.")
         if st.button("🚀 Branchenvorlage jetzt laden und Beurteilung starten (ERSETZEN)", key="btn_fallback_load_from_tab2"):
@@ -702,16 +743,18 @@ with tabs[2]:
             known_areas = sorted({h.area for h in assess.hazards} | set(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) | {"Sonstiges"})
             area = col1.selectbox("Bereich", known_areas, key="add_area")
             activity = col2.text_input("Tätigkeit", key="add_activity")
-            hazard_txt = st.text_input("Gefährdung", key="add_hazard")
+            hazard_txt = st.text_input("Gefährdung (bei mehreren: Komma/Slash/‚und‘ trennt in Einzeleinträge)", key="add_hazard")
             sources = st.text_input("Quellen/Einwirkungen (durch ; trennen)", key="add_sources")
             existing = st.text_input("Bestehende Maßnahmen (durch ; trennen)", key="add_existing")
             if st.button("Hinzufügen", key="btn_add_hazard"):
-                assess.hazards.append(Hazard(
-                    id=new_id(), area=area, activity=activity, hazard=hazard_txt,
-                    sources=[s.strip() for s in sources.split(";") if s.strip()],
-                    existing_controls=[e.strip() for e in existing.split(";") if e.strip()]
-                ))
-                st.success("Gefährdung hinzugefügt.")
+                hazards_list = split_hazard_text(hazard_txt) if st.session_state.get("opt_split_multi_hazards", True) else [hazard_txt]
+                for hz_text in hazards_list:
+                    assess.hazards.append(Hazard(
+                        id=new_id(), area=area, activity=activity, hazard=hz_text,
+                        sources=[s.strip() for s in sources.split(";") if s.strip()],
+                        existing_controls=[e.strip() for e in existing.split(";") if e.strip()]
+                    ))
+                st.success(f"{len(hazards_list)} Eintrag(e) hinzugefügt (1 Tätigkeit → 1 Gefährdung je Eintrag).")
 
     with colR:
         st.markdown("**Auswahl & Details**")
@@ -723,7 +766,7 @@ with tabs[2]:
             idx = all_areas.index(hz.area) if hz.area in all_areas else len(all_areas)-1
             hz.area = st.selectbox("Bereich", options=all_areas, index=idx, key=f"edit_area_{hz.id}")
             hz.activity = st.text_input("Tätigkeit", value=hz.activity, key=f"edit_activity_{hz.id}")
-            hz.hazard = st.text_input("Gefährdung", value=hz.hazard, key=f"edit_hazard_{hz.id}")
+            hz.hazard = st.text_input("Gefährdung (nur eine pro Eintrag)", value=hz.hazard, key=f"edit_hazard_{hz.id}")
             src = st.text_area("Quellen/Einwirkungen", value="; ".join(hz.sources), key=f"edit_sources_{hz.id}")
             hz.sources = [s.strip() for s in src.split(";") if s.strip()]
             ex = st.text_area("Bestehende Maßnahmen", value="; ".join(hz.existing_controls), key=f"edit_existing_{hz.id}")
@@ -738,7 +781,7 @@ with tabs[3]:
     st.subheader("3) Gefährdungen beurteilen (5×5)")
     thresholds = assess.risk_matrix_thresholds["thresholds"]
 
-    # NEU: Fallback-Start in Tab 3
+    # Fallback-Start in Tab 3
     if not assess.hazards:
         st.warning("Keine Gefährdungen vorhanden. Lade eine Vorlage, um mit der Beurteilung zu starten.")
         if st.button("🚀 Branchenvorlage laden (ERSETZEN)", key="btn_fallback_load_from_tab3"):
@@ -754,8 +797,8 @@ with tabs[3]:
     colA, colB = st.columns([1,1])
 
     with colA:
-        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_assess")
-        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards], key="sel_hazard_assess")
+        hz = assess.hazards[[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards].index(sel)]
         hz.prob = st.slider("Eintrittswahrscheinlichkeit (1 = sehr selten … 5 = häufig)", 1, 5, hz.prob, key=f"prob_{hz.id}")
         hz.sev = st.slider("Schadensschwere (1 = gering … 5 = katastrophal)", 1, 5, hz.sev, key=f"sev_{hz.id}")
         v, lvl = compute_risk(hz.prob, hz.sev, thresholds)
@@ -767,7 +810,7 @@ with tabs[3]:
     with colB:
         st.markdown("**Schnellübersicht (Top-Risiken)**")
         top = sorted(assess.hazards, key=lambda x: x.risk_value, reverse=True)[:10]
-        top_df = pd.DataFrame([{"ID":h.id, "Bereich":h.area, "Gefährdung":h.hazard, "Risiko":h.risk_value, "Stufe":h.risk_level} for h in top])
+        top_df = pd.DataFrame([{"ID":h.id, "Bereich":h.area, "Tätigkeit":h.activity, "Gefährdung":h.hazard, "Risiko":h.risk_value, "Stufe":h.risk_level} for h in top])
         st.dataframe(top_df, hide_index=True, use_container_width=True, key="df_top_risks")
 
 # 4 Maßnahmen
@@ -777,8 +820,8 @@ with tabs[4]:
     if not assess.hazards:
         st.info("Keine Gefährdungen vorhanden. Lade eine Vorlage in Tab 0 oder nutze die Sidebar.")
     else:
-        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_measures")
-        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards], key="sel_hazard_measures")
+        hz = assess.hazards[[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards].index(sel)]
 
         with st.expander("➕ Maßnahme hinzufügen"):
             title = st.text_input("Maßnahme", key=f"m_title_{hz.id}")
@@ -800,7 +843,7 @@ with tabs[5]:
     rows = []
     for h in assess.hazards:
         for m in h.additional_measures:
-            rows.append({"ID": h.id, "Bereich": h.area, "Gefährdung": h.hazard, "Risiko": h.risk_value,
+            rows.append({"ID": h.id, "Bereich": h.area, "Tätigkeit": h.activity, "Gefährdung": h.hazard, "Risiko": h.risk_value,
                          "Maßnahme": m.title, "STOP(+Q)": m.stop_level, "Fällig": m.due_date or "",
                          "Status": m.status, "Verantwortlich": m.responsible})
     if rows:
@@ -815,8 +858,8 @@ with tabs[6]:
     if not assess.hazards:
         st.info("Keine Gefährdungen vorhanden.")
     else:
-        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_review")
-        hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards], key="sel_hazard_review")
+        hz = assess.hazards[[f"{h.id} – {h.area}: {h.activity} → {h.hazard}" for h in assess.hazards].index(sel)]
         if hz.additional_measures:
             for i, m in enumerate(hz.additional_measures):
                 st.markdown(f"**{i+1}. {m.title}**  ({m.stop_level})")
