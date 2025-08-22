@@ -13,7 +13,13 @@ import streamlit as st
 # Datenmodelle
 # =========================
 
-STOP_LEVELS = ["S (Substitution/Quelle entfernen)", "T (Technisch)", "O (Organisatorisch)", "P (PSA)", "Q (Qualifikation/Unterweisung)"]
+STOP_LEVELS = [
+    "S (Substitution/Quelle entfernen)",
+    "T (Technisch)",
+    "O (Organisatorisch)",
+    "P (PSA)",
+    "Q (Qualifikation/Unterweisung)"
+]
 STATUS_LIST = ["offen", "in Umsetzung", "wirksam", "nicht wirksam", "entfallen"]
 
 @dataclass
@@ -113,8 +119,10 @@ def dump_excel(assess: Assessment) -> bytes:
         hazards_df.to_excel(writer, sheet_name="10_Gefaehrdungen", index=False)
         measures_df.to_excel(writer, sheet_name="20_Massnahmen", index=False)
         thresholds = assess.risk_matrix_thresholds["thresholds"]
-        conf_df = pd.DataFrame({"Grenzen (Risikosumme)": ["niedrig ≤", "mittel ≤", "hoch ≤", "sehr hoch >"],
-                                "Wert": [thresholds[0], thresholds[1], thresholds[2], thresholds[2]]})
+        conf_df = pd.DataFrame(
+            {"Grenzen (Risikosumme)": ["niedrig ≤", "mittel ≤", "hoch ≤", "sehr hoch >"],
+             "Wert": [thresholds[0], thresholds[1], thresholds[2], thresholds[2]]}
+        )
         conf_df.to_excel(writer, sheet_name="90_Konfiguration", index=False)
     bio.seek(0)
     return bio.read()
@@ -130,7 +138,7 @@ def from_json(s: str) -> Assessment:
         hazards.append(Hazard(
             id=h["id"], area=h["area"], activity=h["activity"], hazard=h["hazard"],
             sources=h.get("sources", []),
-            existing_controls=h.get("existing_controls", h.get("existing", [])),
+            existing_controls=h.get("existing_controls", h.get("existing", [])),  # rückwärtskompatibel
             prob=h.get("prob", 3), sev=h.get("sev", 3),
             risk_value=h.get("risk_value", 9), risk_level=h.get("risk_level", "mittel"),
             additional_measures=measures, last_review=h.get("last_review"),
@@ -152,12 +160,12 @@ def slug(*parts: str) -> str:
 
 # =========================
 # Branchen-Bibliothek (erweitert)
-# Struktur: { Branche: { Bereich: [ {activity, hazard, sources, existing, measures[]} ] } }
 # =========================
 
 def M(title, stop="O (Organisatorisch)"):
     return {"title": title, "stop_level": stop}
 
+# --- HOTEL/GAST ---
 LIB_HOTEL = {
     "Küche": [
         {"activity": "Kochen (Töpfe/Kessel)", "hazard": "Hitze, heiße Flüssigkeiten, Verbrühungen/Verbrennungen", "sources": ["Herde","Kessel","Töpfe"], "existing": ["Hitzeschutz"], "measures":[M("Topfdeckel/Spritzschutz nutzen","T (Technisch)"), M("‚Heiß!‘ rufen"), M("Hitzeschutzhandschuhe","P (PSA)")]},
@@ -176,13 +184,13 @@ LIB_HOTEL = {
         {"activity": "Altöl/Müll entsorgen", "hazard": "Verbrennung bei heißem Öl, Schnitt/Infektion", "sources": ["Altöl","Müllsack"], "existing": ["Abkühlen"], "measures":[M("Deckel-Transportbehälter","T (Technisch)"), M("Handschutz verpflichtend","P (PSA)")]},
         {"activity": "TK-/Kühlräume", "hazard": "Kälte, Rutschgefahr, Einsperr-Risiko", "sources": ["Kühlzelle","TK"], "existing": ["Kälteschutz"], "measures":[M("Tür-Notöffnung prüfen","T (Technisch)"), M("Aufenthaltsdauer begrenzen")]},
         {"activity": "Allergenmanagement", "hazard": "Kreuzkontamination/Allergene", "sources": ["Zutatenwechsel"], "existing": ["Kennzeichnung"], "measures":[M("Rein-/Unrein-Organisation"), M("Unterweisung LMIV","Q (Qualifikation/Unterweisung)")]},
-        {"activity": "Elektrische Kleingeräte", "hazard": "Stromschlag, Brandrisiko", "sources": ["Mixer","Pürierstab"], "existing": ["Sichtprüfung"], "measures":[M("Prüfintervall ortsveränderliche Geräte","O (Organisatorisch)")]},
+        {"activity": "Elektrische Kleingeräte", "hazard": "Stromschlag, Brandrisiko", "sources": ["Mixer","Pürierstab"], "existing": ["Sichtprüfung"], "measures":[M("Prüfintervall ortsveränderliche Geräte")]},
     ],
     "Housekeeping": [
         {"activity": "Betten machen", "hazard": "Rücken-/Schulterbelastung, Verdrehungen", "sources": ["Matratzen"], "existing": ["Arbeitstechnik"], "measures":[M("Ecken-Technik schulen","Q (Qualifikation/Unterweisung)"), M("Leichtere Bettwaren","S (Substitution/Quelle entfernen)")]},
         {"activity": "Sanitärreinigung", "hazard": "Chemikalienreizungen, Aerosole", "sources": ["Reiniger"], "existing": ["Hautschutzplan"], "measures":[M("Dosierstation/Piktogramme","T (Technisch)"), M("Sprühnebel vermeiden","S (Substitution/Quelle entfernen)")]},
         {"activity": "Fenster/Glas innen", "hazard": "Sturz, Schnitt an Glas", "sources": ["Leitern","Glas"], "existing": ["Leiterprüfung"], "measures":[M("Teleskopstiele statt Leiter","S (Substitution/Quelle entfernen)"), M("Schnittfeste Handschuhe","P (PSA)")]},
-        {"activity": "Wäschetransport", "hazard": "Heben/Tragen, Quetschungen", "sources": ["Wäschewagen"], "existing": ["Schiebehilfen"], "measures":[M("Lastbegrenzung"), M("Türen offen sichern","O (Organisatorisch)")]},
+        {"activity": "Wäschetransport", "hazard": "Heben/Tragen, Quetschungen", "sources": ["Wäschewagen"], "existing": ["Schiebehilfen"], "measures":[M("Lastbegrenzung"), M("Türen offen sichern")]},
         {"activity": "Abfallentsorgung", "hazard": "Stich-/Schnittverletzungen, Infektionsgefahr", "sources": ["Scherben","Nadeln"], "existing": ["Feste Behälter"], "measures":[M("Sharps-Boxen","T (Technisch)"), M("Meldeweg Nadel-/Scherbenfund")]},
     ],
     "Service/Bar": [
@@ -223,6 +231,7 @@ LIB_HOTEL = {
     ],
 }
 
+# --- Bäckerei ---
 LIB_BAECKEREI = {
     "Produktion": [
         {"activity":"Backen am Etagen-/Stikkenofen","hazard":"Hitze/Verbrennung, Dampf","sources":["Öfen","Backwagen"],"existing":["Hitzeschutz"],"measures":[M("Backwagen fixieren"),M("Hitzeschutzhandschuhe","P (PSA)")]},
@@ -246,6 +255,7 @@ LIB_BAECKEREI = {
     ]
 }
 
+# --- Fleischerei/Metzgerei ---
 LIB_FLEISCHEREI = {
     "Produktion": [
         {"activity":"Bandsäge","hazard":"Schnitt/Amputation","sources":["Bandsäge"],"existing":["Schutzhaube","Not-Aus"],"measures":[M("Nur befugte Bedienung"),M("Reinigung stromlos")]},
@@ -262,6 +272,7 @@ LIB_FLEISCHEREI = {
     ]
 }
 
+# --- Gemeinschaftsverpflegung/Kantine ---
 LIB_KANTINE = {
     "Küche": [
         {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed."],"measures":[M("Kipp-Prozess standardisieren")]},
@@ -275,6 +286,7 @@ LIB_KANTINE = {
     ]
 }
 
+# --- Konditorei/Café ---
 LIB_KONDITOREI = {
     "Produktion": [
         {"activity":"Zucker kochen/Karamell","hazard":"Heißsirup/Verbrennung","sources":["Kocher"],"existing":["Hitzeschutz"],"measures":[M("Schutzbrille & langsames Aufgießen","P (PSA)")]},
@@ -289,17 +301,17 @@ LIB_KONDITOREI = {
     ]
 }
 
-# NEU: Brauerei
+# --- Brauerei ---
 LIB_BRAUEREI = {
     "Sudhaus": [
         {"activity":"Maischen/Kochen im Sudkessel","hazard":"Heißdampf/Verbrühung, CO₂ beim Kochen","sources":["Sudkessel","Whirlpool"],"existing":["Abschrankung","Hitzeschutz"],"measures":[M("Deckel & Dampfableitung prüfen","T (Technisch)"),M("Heißarbeiten vermeiden, Vorsicht beim Öffnen")]},
         {"activity":"Whirlpool/Trubabzug","hazard":"Heißdampf/Verbrennung","sources":["Whirlpool"],"existing":["Abdeckung"],"measures":[M("Öffnen nur nach Abkühlen")]},
-        {"activity":"Läuterbottich","hazard":"Einsinken/Erstickung bei Einstieg, Heißdampf","sources":["Läuterbottich"],"existing":["Zutritt verboten"],"measures":[M("Befahren als enge Räume regeln (Permit)","O (Organisatorisch)")]},
+        {"activity":"Läuterbottich","hazard":"Einsinken/Erstickung bei Einstieg, Heißdampf","sources":["Läuterbottich"],"existing":["Zutritt verboten"],"measures":[M("Befahren als enge Räume regeln (Permit)")]},
         {"activity":"Reinigung CIP","hazard":"Ätz-/Reizwirkung, Gasbildung","sources":["Laugen/Säuren"],"existing":["Dosierung","BA"],"measures":[M("CIP-Schläuche sichern","T (Technisch)"),M("Augendusche/Notdusche prüfen","T (Technisch)")]},
     ],
     "Gär-/Keller": [
         {"activity":"Gär-/Lagertanks","hazard":"CO₂-Ansammlung/Erstickung, Druck","sources":["Gärtank"],"existing":["CO₂-Warner","Lüftung"],"measures":[M("Warner testen & loggen","T (Technisch)"),M("Freimessen vor Einstieg")]},
-        {"activity":"Druckbehälter/Überdruck","hazard":"Explosion/Druckverletzung","sources":["Tankdruck"],"existing":["Sicherheitsventile"],"measures":[M("SV-Prüfungen dokumentieren","O (Organisatorisch)")]},
+        {"activity":"Druckbehälter/Überdruck","hazard":"Explosion/Druckverletzung","sources":["Tankdruck"],"existing":["Sicherheitsventile"],"measures":[M("SV-Prüfungen dokumentieren")]},
         {"activity":"Hefeernte/Umfüllen","hazard":"Biologische Gefährdung, Rutsch","sources":["Hefeschlamm"],"existing":["Handschutz"],"measures":[M("Spritzschutz & Kennzeichnung","T (Technisch)")]},
     ],
     "Abfüllung/Fasskeller": [
@@ -307,12 +319,12 @@ LIB_BRAUEREI = {
         {"activity":"Fassfüllen/Anstechen","hazard":"Druck, Schläge","sources":["Fass","ZKG"],"existing":["Sichere Kupplungen"],"measures":[M("Schlagschutz/PSA","P (PSA)")]},
     ],
     "Wartung/Technik": [
-        {"activity":"CO₂-Flaschenlager","hazard":"Erstickung bei Leck","sources":["Flaschenbündel"],"existing":["CO₂-Warner","Belüftung"],"measures":[M("Dichtheitskontrolle","O (Organisatorisch)")]},
-        {"activity":"Ammoniak-Kälte","hazard":"NH₃-Toxizität/Leck","sources":["Kälteanlage"],"existing":["Gaswarnanlage"],"measures":[M("Alarm-/Rettungsplan","O (Organisatorisch)"),M("Filter/Fluchtgeräte","P (PSA)")]},
+        {"activity":"CO₂-Flaschenlager","hazard":"Erstickung bei Leck","sources":["Flaschenbündel"],"existing":["CO₂-Warner","Belüftung"],"measures":[M("Dichtheitskontrolle")]},
+        {"activity":"Ammoniak-Kälte","hazard":"NH₃-Toxizität/Leck","sources":["Kälteanlage"],"existing":["Gaswarnanlage"],"measures":[M("Alarm-/Rettungsplan"),M("Filter/Fluchtgeräte","P (PSA)")]},
     ],
 }
 
-# NEU: Getränkeabfüllung
+# --- Getränkeabfüllung ---
 LIB_GETRAENKEABF = {
     "Sirupe/Konzentrat": [
         {"activity":"Ansatz Sirup","hazard":"Chemische Reizung (Säuren/Basen), Rutsch","sources":["Zutaten","CIP"],"existing":["Dosierhilfen"],"measures":[M("BA & SDB an Station","T (Technisch)")]},
@@ -332,7 +344,7 @@ LIB_GETRAENKEABF = {
     ]
 }
 
-# NEU: Eisherstellung
+# --- Eisherstellung ---
 LIB_EIS = {
     "Produktion": [
         {"activity":"Pasteurisieren Milchmischung","hazard":"Verbrühung, Dampf","sources":["Pasteur"],"existing":["Hitzeschutz"],"measures":[M("Temperatur/Zeiten protokollieren")]},
@@ -350,7 +362,7 @@ LIB_EIS = {
     ]
 }
 
-# NEU: Event/Catering
+# --- Event/Catering ---
 LIB_EVENT = {
     "Vorbereitung/Produktion": [
         {"activity":"Mise en place/Kochen vor Ort","hazard":"Verbrennung/Verbrühung, Elektrik mobil","sources":["Induktionsfelder","Gasbrenner"],"existing":["E-Check mobil"],"measures":[M("Zuleitungen sichern"),M("Feuerlöscher bereit")]},
@@ -366,10 +378,10 @@ LIB_EVENT = {
     ]
 }
 
-# NEU: Fast Food / Quickservice
+# --- Fast Food / Quickservice ---
 LIB_QSR = {
     "Küche": [
-        {"activity":"Fritteusenbetrieb","hazard":"Fettbrand, Verbrennung","sources":["Fritteuse"],"existing":["Löschdecke"],"measures":[M("Autom. Löschanlage falls vorhanden prüfen","T (Technisch)"),M("Kein Wasser!")]},
+        {"activity":"Fritteusenbetrieb","hazard":"Fettbrand, Verbrennung","sources":["Fritteuse"],"existing":["Löschdecke"],"measures":[M("Autom. Löschanlage (falls vorhanden) prüfen","T (Technisch)"),M("Kein Wasser!")]},
         {"activity":"Griddle/Flame Broiler","hazard":"Hitze/Verbrennung, Rauch","sources":["Grill"],"existing":["Abzug"],"measures":[M("Reinigungsplan Haube/Filter")]},
         {"activity":"Slicer/Chopper","hazard":"Schnitt/Scherstellen","sources":["Slicer"],"existing":["Schutz"],"measures":[M("Nur mit Werkzeug reinigen")]},
         {"activity":"Gefriertruhe/Schockfroster","hazard":"Kälte/Rutsch","sources":["TK"],"existing":["Kälteschutz"],"measures":[M("Eis entfernen")]},
@@ -384,7 +396,7 @@ LIB_QSR = {
     ]
 }
 
-# NEU: Wäscherei / Textilreinigung
+# --- Wäscherei / Textilreinigung ---
 LIB_WAESCHE = {
     "Annahme/Vorsortierung": [
         {"activity":"Schmutzwäscheannahme","hazard":"Biologische Gefährdungen, Stichverletzung","sources":["Schmutzwäsche"],"existing":["Handschutz"],"measures":[M("Sharps-Check/Trennung Unrein/Rein")]},
@@ -421,7 +433,8 @@ INDUSTRY_LIBRARY: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
 # Vorlagen laden/auswählen
 # =========================
 
-def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]], selected_keys: Optional[List[str]] = None, industry_name: Optional[str] = None):
+def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]],
+                       selected_keys: Optional[List[str]] = None, industry_name: Optional[str] = None):
     for area, items in template.items():
         for item in items:
             key = template_item_key(industry_name or assess.industry, area, item)
@@ -500,6 +513,27 @@ with st.sidebar:
     sector = st.selectbox("Branche", options=options, index=default_idx, key="sel_industry")
     st.caption(f"Aktuell geladen: **{assess.industry}**")
 
+    # --- Schnell-Laden der Branchenvorlage in der Sidebar ---
+    st.markdown("**Schnell laden:**")
+    c_load1, c_load2 = st.columns(2)
+    with c_load1:
+        if st.button("📚 Vorlage ERSETZEN", key="btn_load_replace_sidebar"):
+            assess.hazards = []
+            tmpl = INDUSTRY_LIBRARY.get(sector, {})
+            add_template_items(assess, tmpl, selected_keys=None, industry_name=sector)
+            assess.industry = sector
+            if "template_checks" in st.session_state:
+                st.session_state.template_checks = {}
+            st.success(f"Vorlage '{sector}' geladen (ersetzt).")
+            st.rerun()
+    with c_load2:
+        if st.button("➕ Vorlage ANHÄNGEN", key="btn_load_append_sidebar"):
+            tmpl = INDUSTRY_LIBRARY.get(sector, {})
+            add_template_items(assess, tmpl, selected_keys=None, industry_name=sector)
+            assess.industry = sector
+            st.success(f"Vorlage '{sector}' hinzugefügt (angehängt).")
+            st.rerun()
+
     st.markdown("---")
     st.subheader("Risikomatrix (5×5)")
     thr = assess.risk_matrix_thresholds.get("thresholds", [6, 12, 16])
@@ -549,7 +583,10 @@ with tabs[0]:
         st.session_state.template_checks = {}
 
     cols = st.columns([0.24, 0.24, 0.42, 0.10])
-    cols[0].markdown("**Bereich**"); cols[1].markdown("**Tätigkeit**"); cols[2].markdown("**Gefährdung**"); cols[3].markdown("**Auswählen**")
+    cols[0].markdown("**Bereich**")
+    cols[1].markdown("**Tätigkeit**")
+    cols[2].markdown("**Gefährdung**")
+    cols[3].markdown("**Auswählen**")
 
     items = iter_template_items(sector)
     shown_keys = []
@@ -562,7 +599,9 @@ with tabs[0]:
                 continue
         shown_keys.append(keyval)
         c0, c1, c2, c3 = st.columns([0.24, 0.24, 0.42, 0.10])
-        c0.write(area); c1.write(item.get("activity","")); c2.write(item.get("hazard",""))
+        c0.write(area)
+        c1.write(item.get("activity",""))
+        c2.write(item.get("hazard",""))
         default_checked = st.session_state.template_checks.get(keyval, False)
         st.session_state.template_checks[keyval] = c3.checkbox(" ", key=f"chk_{keyval}", value=default_checked)
 
@@ -570,11 +609,13 @@ with tabs[0]:
     colA, colB, colC = st.columns([0.5,0.25,0.25])
     with colB:
         if st.button("Alle sichtbaren markieren", key="btn_mark_all"):
-            for k in shown_keys: st.session_state.template_checks[k] = True
+            for k in shown_keys:
+                st.session_state.template_checks[k] = True
             st.rerun()
     with colC:
         if st.button("Alle sichtbaren demarkieren", key="btn_unmark_all"):
-            for k in shown_keys: st.session_state.template_checks[k] = False
+            for k in shown_keys:
+                st.session_state.template_checks[k] = False
             st.rerun()
 
     st.markdown("---")
@@ -596,17 +637,22 @@ with tabs[0]:
 # 1 Vorbereiten
 with tabs[1]:
     st.subheader("1) Vorbereiten")
-    assess.industry = st.selectbox("Branche der Beurteilung", options=list(INDUSTRY_LIBRARY.keys()),
-                                   index=list(INDUSTRY_LIBRARY.keys()).index(assess.industry) if assess.industry in INDUSTRY_LIBRARY else 0,
-                                   key="assess_industry")
-    assess.scope_note = st.text_area("Umfang / Arbeitsbereiche / Beteiligte",
-                                     value=assess.scope_note, height=140, key="scope_note")
+    assess.industry = st.selectbox(
+        "Branche der Beurteilung", options=list(INDUSTRY_LIBRARY.keys()),
+        index=list(INDUSTRY_LIBRARY.keys()).index(assess.industry) if assess.industry in INDUSTRY_LIBRARY else 0,
+        key="assess_industry"
+    )
+    assess.scope_note = st.text_area(
+        "Umfang / Arbeitsbereiche / Beteiligte",
+        value=assess.scope_note, height=140, key="scope_note"
+    )
     st.info("Mit Tab „0 Vorlagen auswählen“ kannst du weitere Tätigkeiten/Gefährdungen anfügen.")
 
 # 2 Ermitteln
 with tabs[2]:
     st.subheader("2) Gefährdungen ermitteln")
     colL, colR = st.columns([2,1])
+
     with colL:
         st.markdown("**Gefährdungen (Bearbeiten)**")
         if assess.hazards:
@@ -614,6 +660,7 @@ with tabs[2]:
             st.dataframe(df, use_container_width=True, hide_index=True, key="df_hazards")
         else:
             st.info("Noch keine Gefährdungen. Wähle im Tab „0 Vorlagen auswählen“ Tätigkeiten aus oder füge unten manuell hinzu.")
+
         with st.expander("➕ Gefährdung manuell hinzufügen"):
             col1, col2 = st.columns(2)
             known_areas = sorted({h.area for h in assess.hazards} | set(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) | {"Sonstiges"})
@@ -629,6 +676,7 @@ with tabs[2]:
                     existing_controls=[e.strip() for e in existing.split(";") if e.strip()]
                 ))
                 st.success("Gefährdung hinzugefügt.")
+
     with colR:
         st.markdown("**Auswahl & Details**")
         ids = [h.id for h in assess.hazards]
@@ -654,6 +702,7 @@ with tabs[3]:
     st.subheader("3) Gefährdungen beurteilen (5×5)")
     thresholds = assess.risk_matrix_thresholds["thresholds"]
     colA, colB = st.columns([1,1])
+
     with colA:
         if not assess.hazards:
             st.info("Keine Gefährdungen vorhanden.")
@@ -667,6 +716,7 @@ with tabs[3]:
             color = "green" if lvl == "niedrig" else "orange" if lvl == "mittel" else "red"
             st.markdown(f"**Risikosumme:** {v}  —  **Stufe:** :{color}_circle: {lvl}")
             hz.documentation_note = st.text_area("Beurteilungs-/Dokumentationshinweis", value=hz.documentation_note, key=f"doc_note_{hz.id}")
+
     with colB:
         st.markdown("**Schnellübersicht (Top-Risiken)**")
         if assess.hazards:
@@ -679,12 +729,13 @@ with tabs[3]:
 # 4 Maßnahmen
 with tabs[4]:
     st.subheader("4) Maßnahmen festlegen (STOP + Q)")
-    st.caption("Zuerst Quelle vermeiden/vermindern (S), dann Technik (T), Organisation (O), PSA (P) + Qualifikation (Q).")
+    st.caption("Erst S (Quelle vermeiden/ersetzen), dann T, O, P und Q.")
     if not assess.hazards:
         st.info("Keine Gefährdungen vorhanden.")
     else:
         sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_measures")
         hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
+
         with st.expander("➕ Maßnahme hinzufügen"):
             title = st.text_input("Maßnahme", key=f"m_title_{hz.id}")
             stop = st.selectbox("STOP(+Q)", STOP_LEVELS, index=0, key=f"m_stop_{hz.id}")
@@ -694,6 +745,7 @@ with tabs[4]:
             if st.button("Hinzufügen ➕", key=f"btn_add_measure_{hz.id}"):
                 hz.additional_measures.append(Measure(title=title, stop_level=stop, responsible=responsible, due_date=due.isoformat(), notes=notes))
                 st.success("Maßnahme hinzugefügt.")
+
         if hz.additional_measures:
             mdf = pd.DataFrame([asdict(m) for m in hz.additional_measures])
             st.dataframe(mdf, use_container_width=True, hide_index=True, key=f"df_measures_{hz.id}")
@@ -734,13 +786,19 @@ with tabs[6]:
 # 7 Dokumentation
 with tabs[7]:
     st.subheader("7) Ergebnisse dokumentieren")
-    assess.documentation_note = st.text_area("Dokumentationshinweis (welche Unterlagen, wo abgelegt, Versionierung)", value=assess.documentation_note, height=120, key="doc_note_global")
+    assess.documentation_note = st.text_area(
+        "Dokumentationshinweis (welche Unterlagen, wo abgelegt, Versionierung)",
+        value=assess.documentation_note, height=120, key="doc_note_global"
+    )
     st.markdown("**Nachweise/Beispiele:** Betriebsanweisungen, Unterweisungsnachweise, Prüfprotokolle (Leitern/Elektro), Wartungspläne (z. B. Lüftung/Legionellen), Gefahrstoffverzeichnis, Unfallstatistik, Beinahe-Unfälle.")
 
 # 8 Fortschreiben
 with tabs[8]:
     st.subheader("8) Fortschreiben")
-    assess.next_review_hint = st.text_area("Anlässe/Fristen (regelmäßige Überprüfung, nach Unfällen/Beinaheunfällen, Änderungen)", value=assess.next_review_hint, height=100, key="next_review_hint")
+    assess.next_review_hint = st.text_area(
+        "Anlässe/Fristen (regelmäßige Überprüfung, nach Unfällen/Beinaheunfällen, Änderungen)",
+        value=assess.next_review_hint, height=100, key="next_review_hint"
+    )
     st.info("Hinweis: Änderungen dokumentieren und Datums-/Namensfeld bei Überprüfung ergänzen.")
 
 # Übersicht
