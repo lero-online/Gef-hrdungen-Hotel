@@ -1,9 +1,10 @@
 import json
 from dataclasses import dataclass, asdict, field
 from datetime import date, datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from dateutil.relativedelta import relativedelta
 from io import BytesIO
+import re
 
 import pandas as pd
 import streamlit as st
@@ -14,13 +15,6 @@ import streamlit as st
 
 STOP_LEVELS = ["S (Substitution/Quelle entfernen)", "T (Technisch)", "O (Organisatorisch)", "P (PSA)", "Q (Qualifikation/Unterweisung)"]
 STATUS_LIST = ["offen", "in Umsetzung", "wirksam", "nicht wirksam", "entfallen"]
-
-RISK_COLOR = {
-    "sehr hoch": "#8b0000",
-    "hoch": "#d9534f",
-    "mittel": "#f0ad4e",
-    "niedrig": "#5cb85c"
-}
 
 @dataclass
 class Measure:
@@ -34,13 +28,13 @@ class Measure:
 @dataclass
 class Hazard:
     id: str
-    area: str                # Arbeitsbereich
-    activity: str            # Tätigkeit
-    hazard: str              # Gefährdungsbeschreibung
-    sources: List[str]       # Quellen/Einwirkungen
-    existing_controls: List[str]  # bereits vorhandene Maßnahmen
-    prob: int = 3            # Eintrittswahrscheinlichkeit 1..5
-    sev: int = 3             # Schadensschwere 1..5
+    area: str
+    activity: str
+    hazard: str
+    sources: List[str]
+    existing_controls: List[str]
+    prob: int = 3
+    sev: int = 3
     risk_value: int = 9
     risk_level: str = "mittel"
     additional_measures: List[Measure] = field(default_factory=list)
@@ -52,15 +46,11 @@ class Hazard:
 class Assessment:
     company: str
     location: str
-    created_at: str          # ISO
+    created_at: str
     created_by: str
     industry: str = "Hotel/Gastgewerbe"
     scope_note: str = ""
-    risk_matrix_thresholds: Dict[str, List[int]] = field(default_factory=lambda: {
-        # Grenzwerte für 5x5 Matrix (Summe = prob*sev)
-        # [low_max, mid_max, high_max] -> Rest = sehr hoch
-        "thresholds": [6, 12, 16]  # 2..6 niedrig, 7..12 mittel, 13..16 hoch, 17..25 sehr hoch
-    })
+    risk_matrix_thresholds: Dict[str, List[int]] = field(default_factory=lambda: {"thresholds": [6, 12, 16]})
     hazards: List[Hazard] = field(default_factory=list)
     measures_plan_note: str = ""
     documentation_note: str = ""
@@ -70,7 +60,7 @@ class Assessment:
 # Utility
 # =========================
 
-def compute_risk(prob: int, sev: int, thresholds: List[int]) -> (int, str):
+def compute_risk(prob: int, sev: int, thresholds: List[int]) -> Tuple[int, str]:
     v = prob * sev
     if v <= thresholds[0]:
         return v, "niedrig"
@@ -83,18 +73,11 @@ def compute_risk(prob: int, sev: int, thresholds: List[int]) -> (int, str):
 
 def hazard_to_row(h: Hazard) -> Dict[str, Any]:
     return {
-        "ID": h.id,
-        "Bereich": h.area,
-        "Tätigkeit": h.activity,
-        "Gefährdung": h.hazard,
-        "Quellen/Einwirkungen": "; ".join(h.sources),
-        "Bestehende Maßnahmen": "; ".join(h.existing_controls),
-        "Eintrittswahrscheinlichkeit (1-5)": h.prob,
-        "Schadensschwere (1-5)": h.sev,
-        "Risikosumme": h.risk_value,
-        "Risikostufe": h.risk_level,
-        "Letzte Prüfung": h.last_review or "",
-        "Prüfer/in": h.reviewer,
+        "ID": h.id, "Bereich": h.area, "Tätigkeit": h.activity, "Gefährdung": h.hazard,
+        "Quellen/Einwirkungen": "; ".join(h.sources), "Bestehende Maßnahmen": "; ".join(h.existing_controls),
+        "Eintrittswahrscheinlichkeit (1-5)": h.prob, "Schadensschwere (1-5)": h.sev,
+        "Risikosumme": h.risk_value, "Risikostufe": h.risk_level,
+        "Letzte Prüfung": h.last_review or "", "Prüfer/in": h.reviewer,
         "Dokumentationshinweis": h.documentation_note
     }
 
@@ -102,15 +85,9 @@ def measures_to_rows(h: Hazard) -> List[Dict[str, Any]]:
     rows = []
     for m in h.additional_measures:
         rows.append({
-            "Gefährdungs-ID": h.id,
-            "Bereich": h.area,
-            "Gefährdung": h.hazard,
-            "Maßnahme": m.title,
-            "STOP(+Q)": m.stop_level,
-            "Verantwortlich": m.responsible,
-            "Fällig am": m.due_date or "",
-            "Status": m.status,
-            "Hinweis": m.notes
+            "Gefährdungs-ID": h.id, "Bereich": h.area, "Gefährdung": h.hazard,
+            "Maßnahme": m.title, "STOP(+Q)": m.stop_level, "Verantwortlich": m.responsible,
+            "Fällig am": m.due_date or "", "Status": m.status, "Hinweis": m.notes
         })
     return rows
 
@@ -119,23 +96,17 @@ def new_id(prefix="HZ", n=4) -> str:
     return f"{prefix}-{int(datetime.now().timestamp())}-{ts}"
 
 def dump_excel(assess: Assessment) -> bytes:
-    """Excel-Export in-memory (keine Dateischreibrechte nötig)."""
     hazards_df = pd.DataFrame([hazard_to_row(h) for h in assess.hazards])
     measures_df = pd.DataFrame([r for h in assess.hazards for r in measures_to_rows(h)])
-
     meta = {
-        "Unternehmen": assess.company,
-        "Standort": assess.location,
-        "Erstellt am": assess.created_at,
-        "Erstellt von": assess.created_by,
-        "Branche": assess.industry,
-        "Umfang/Scope": assess.scope_note,
+        "Unternehmen": assess.company, "Standort": assess.location,
+        "Erstellt am": assess.created_at, "Erstellt von": assess.created_by,
+        "Branche": assess.industry, "Umfang/Scope": assess.scope_note,
         "Maßnahmenplan-Hinweis": assess.measures_plan_note,
         "Dokumentationshinweis": assess.documentation_note,
         "Fortschreibung/Nächster Anlass": assess.next_review_hint
     }
     meta_df = pd.DataFrame(list(meta.items()), columns=["Feld", "Wert"])
-
     bio = BytesIO()
     with pd.ExcelWriter(bio, engine="openpyxl") as writer:
         meta_df.to_excel(writer, sheet_name="00_Meta", index=False)
@@ -157,380 +128,279 @@ def from_json(s: str) -> Assessment:
     for h in data.get("hazards", []):
         measures = [Measure(**m) for m in h.get("additional_measures", [])]
         hazards.append(Hazard(
-            id=h["id"],
-            area=h["area"],
-            activity=h["activity"],
-            hazard=h["hazard"],
+            id=h["id"], area=h["area"], activity=h["activity"], hazard=h["hazard"],
             sources=h.get("sources", []),
-            # rückwärtskompatibel: "existing" oder "existing_controls"
             existing_controls=h.get("existing_controls", h.get("existing", [])),
-            prob=h.get("prob", 3),
-            sev=h.get("sev", 3),
-            risk_value=h.get("risk_value", 9),
-            risk_level=h.get("risk_level", "mittel"),
-            additional_measures=measures,
-            last_review=h.get("last_review"),
-            reviewer=h.get("reviewer", ""),
-            documentation_note=h.get("documentation_note", "")
+            prob=h.get("prob", 3), sev=h.get("sev", 3),
+            risk_value=h.get("risk_value", 9), risk_level=h.get("risk_level", "mittel"),
+            additional_measures=measures, last_review=h.get("last_review"),
+            reviewer=h.get("reviewer", ""), documentation_note=h.get("documentation_note", "")
         ))
     return Assessment(
-        company=data.get("company",""),
-        location=data.get("location",""),
-        created_at=data.get("created_at",""),
-        created_by=data.get("created_by",""),
-        industry=data.get("industry","Hotel/Gastgewerbe"),
-        scope_note=data.get("scope_note", ""),
+        company=data.get("company",""), location=data.get("location",""),
+        created_at=data.get("created_at",""), created_by=data.get("created_by",""),
+        industry=data.get("industry","Hotel/Gastgewerbe"), scope_note=data.get("scope_note", ""),
         risk_matrix_thresholds=data.get("risk_matrix_thresholds", {"thresholds":[6,12,16]}),
-        hazards=hazards,
-        measures_plan_note=data.get("measures_plan_note",""),
-        documentation_note=data.get("documentation_note",""),
-        next_review_hint=data.get("next_review_hint","")
+        hazards=hazards, measures_plan_note=data.get("measures_plan_note",""),
+        documentation_note=data.get("documentation_note",""), next_review_hint=data.get("next_review_hint","")
     )
 
+def slug(*parts: str) -> str:
+    s = "_".join(parts)
+    s = re.sub(r"[^a-zA-Z0-9_-]+", "_", s)
+    return s[:80]
+
 # =========================
-# Branchen-Bibliothek (erweiterbar)
+# Branchen-Bibliothek (erweitert)
 # Struktur: { Branche: { Bereich: [ {activity, hazard, sources, existing, measures[]} ] } }
 # =========================
 
+def M(title, stop="O (Organisatorisch)"):
+    return {"title": title, "stop_level": stop}
+
 LIB_HOTEL = {
     "Küche": [
-        {
-            "activity": "Kochen (Töpfe/Kessel)",
-            "hazard": "Hitze, heiße Flüssigkeiten, Verbrühungen/Verbrennungen",
-            "sources": ["Herde", "Kessel", "Töpfe", "Heißwasser"],
-            "existing": ["Hitzeschutzhandschuhe/-schürzen", "Sichere Griffe/Ablagen", "Unterweisung"],
-            "measures": [
-                {"title": "Topfdeckel-/Spritzschutz konsequent nutzen", "stop_level": "T (Technisch)"},
-                {"title": "Arbeitswege freihalten & ‚Heiß!‘ rufen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutzhandschuhe bereitstellen/prüfen", "stop_level": "P (PSA)"},
-                {"title": "Unterweisung Verbrühungen/Verbrennungen", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Braten (Pfanne/Grillplatte)",
-            "hazard": "Fettspritzer, Verbrennungen, Rauch/Dämpfe",
-            "sources": ["Bratpfannen", "Grillplatten"],
-            "existing": ["Spritzschutz/Abdeckungen", "Abzugshaube funktionsfähig"],
-            "measures": [
-                {"title": "Spritzschutz an Grillplatten verwenden", "stop_level": "T (Technisch)"},
-                {"title": "Abluftleistung prüfen/reinigen", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "Frittieren",
-            "hazard": "Fettbrand, Verbrennungen, Spritzer",
-            "sources": ["Fritteusen"],
-            "existing": ["Fettbrandlöscher/Löschdecke", "Kein Wasser!", "Unterweisung Fettbrand"],
-            "measures": [
-                {"title": "Ölwechsel- & Reinigungsplan festlegen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutzschürze und -handschuhe Pflicht", "stop_level": "P (PSA)"}
-            ]
-        },
-        {
-            "activity": "Kombidämpfer/Dampfgarer öffnen",
-            "hazard": "Dampf/Heißluft – Verbrühung beim Öffnen",
-            "sources": ["Kombidämpfer", "Dampfgarer"],
-            "existing": ["Tür vorsichtig öffnen", "Abkühlzeit beachten"],
-            "measures": [
-                {"title": "Türöffnungsroutine (Spalt) einführen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Hitzeschutzhandschuhe verpflichtend", "stop_level": "P (PSA)"}
-            ]
-        },
-        {
-            "activity": "Schneiden – Arbeiten mit Messern",
-            "hazard": "Schnitt-/Stichverletzungen",
-            "sources": ["Messer", "Schneidbretter"],
-            "existing": ["Scharfe Messer", "Schnittschutzhandschuhe nach Bedarf"],
-            "measures": [
-                {"title": "Schleifplan/Messerservice einführen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schnittschutz bei Risikoschnitten", "stop_level": "P (PSA)"}
-            ]
-        },
-        {
-            "activity": "Maschinen: Aufschnittmaschine",
-            "hazard": "Schnittverletzungen an rotierenden Klingen",
-            "sources": ["Aufschnittmaschine"],
-            "existing": ["Schutzhauben", "Nur Befugte", "Strom trennen bei Reinigung"],
-            "measures": [
-                {"title": "Sicherheitsbauteile prüfen (Haube/Not-Aus)", "stop_level": "T (Technisch)"},
-                {"title": "Berechtigungssystem für Bediener", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "Maschinen: Fleischwolf/Gemüseschneider",
-            "hazard": "Eingezogenwerden, Schnittverletzung",
-            "sources": ["Fleischwolf", "Gemüseschneider"],
-            "existing": ["Stopfer benutzen", "Nie mit der Hand nachschieben"],
-            "measures": [
-                {"title": "Stopfer/Schutzeinrichtungen bereitstellen", "stop_level": "T (Technisch)"},
-                {"title": "Unterweisung: Einziehen vermeiden/Not-Aus", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
-        {
-            "activity": "Spülbereich/Stewarding",
-            "hazard": "Heißes Wasser/Dampf, Chemikalien, Rutschgefahr",
-            "sources": ["Spülmaschine", "Klarspüler", "Nasse Böden"],
-            "existing": ["Hand-/Augenschutz", "Rutschhemmende Schuhe"],
-            "measures": [
-                {"title": "Sofort-Wisch-Regel & Warnschilder", "stop_level": "O (Organisatorisch)"},
-                {"title": "Anti-Rutsch-Matten an Engstellen", "stop_level": "T (Technisch)"}
-            ]
-        },
-        {
-            "activity": "Gasgeräte",
-            "hazard": "Gasleck, CO-Bildung, Brand/Explosion",
-            "sources": ["Gasherde", "Leitungen"],
-            "existing": ["Dichtheitsprüfung", "Gute Belüftung"],
-            "measures": [
-                {"title": "Gaswarnmelder installieren/warten", "stop_level": "T (Technisch)"},
-                {"title": "Leckcheck-Freigabe vor Inbetriebnahme", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "Warenannahme/Hubwagen",
-            "hazard": "Quetschungen, Heben/Tragen, Verkehrswege",
-            "sources": ["Rollcontainer", "Kisten", "Handhubwagen"],
-            "existing": ["Rollwagen/Hubhilfe", "Hebetechnik"],
-            "measures": [
-                {"title": "Wege kennzeichnen & freihalten", "stop_level": "O (Organisatorisch)"},
-                {"title": "Kurzunterweisung Heben/Tragen & Hubwagen", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        },
+        {"activity": "Kochen (Töpfe/Kessel)", "hazard": "Hitze, heiße Flüssigkeiten, Verbrühungen/Verbrennungen", "sources": ["Herde","Kessel","Töpfe"], "existing": ["Hitzeschutz"], "measures":[M("Topfdeckel/Spritzschutz nutzen","T (Technisch)"), M("‚Heiß!‘ rufen"), M("Hitzeschutzhandschuhe","P (PSA)")]},
+        {"activity": "Braten (Pfanne/Grillplatte)", "hazard": "Fettspritzer, Verbrennungen, Rauch/Dämpfe", "sources": ["Pfannen","Grillplatten"], "existing": ["Abzug"], "measures":[M("Spritzschutz einsetzen","T (Technisch)"), M("Haube reinigen/prüfen")]},
+        {"activity": "Frittieren", "hazard": "Fettbrand, Verbrennungen, Spritzer", "sources": ["Fritteusen"], "existing": ["Fettbrandlöscher"], "measures":[M("Ölwechsel-/Reinigungsplan"), M("Hitzeschutzschürze & Handschuhe","P (PSA)")]},
+        {"activity": "Kombidämpfer öffnen", "hazard": "Dampf/Heißluft – Verbrühung beim Öffnen", "sources": ["Kombidämpfer"], "existing": ["Abkühlzeit"], "measures":[M("Tür erst spaltweise öffnen"), M("Hitzeschutzhandschuhe","P (PSA)")]},
+        {"activity": "Saucen/Reduktionen", "hazard": "Dampf, Spritzer, inhalative Belastung", "sources": ["Reduktion"], "existing": ["Abluft"], "measures":[M("Deckel/Spritzschutz","T (Technisch)") , M("Lüftung checken")]},
+        {"activity": "Schneiden mit Messern", "hazard": "Schnitt-/Stichverletzungen", "sources": ["Messer"], "existing": ["Scharfe Messer"], "measures":[M("Schleifplan"), M("Schnittschutzhandschuhe bei Bedarf","P (PSA)")]},
+        {"activity": "Aufschnittmaschine", "hazard": "Schnittverletzungen an rotierenden Klingen", "sources": ["Aufschnitt"], "existing": ["Schutzhaube","Not-Aus"], "measures":[M("Sicherheitsbauteile prüfen","T (Technisch)"), M("Nur befugte Bedienung")]},
+        {"activity": "Fleischwolf/Gemüseschneider", "hazard": "Eingezogenwerden, Schnittverletzung", "sources": ["Wolf","Gemüseschneider"], "existing": ["Stopfer"], "measures":[M("Stopfer verwenden"), M("Unterweisung Not-Aus","Q (Qualifikation/Unterweisung)")]},
+        {"activity": "Kippkessel/Bräter", "hazard": "Verbrühung, Quetschen beim Kippen", "sources": ["Kippkessel"], "existing": ["Hitzeschutz"], "measures":[M("Kipp-Prozess standardisieren"), M("Zweihandbedienung beachten","Q (Qualifikation/Unterweisung)")]},
+        {"activity": "Spülbereich", "hazard": "Heißes Wasser/Dampf, Chemikalien, Rutschgefahr", "sources": ["Spülmaschine","Klarspüler"], "existing": ["Hand-/Augenschutz"], "measures":[M("Sofort-Wisch-Regel"), M("Antirutsch-Matten","T (Technisch)")]},
+        {"activity": "Reinigung/Chemie", "hazard": "Ätz-/Reizwirkung, Chlorgas bei Mischungen", "sources": ["Reiniger/Desinfektion"], "existing": ["Dosiersysteme"], "measures":[M("Vordosierte Kartuschen","S (Substitution/Quelle entfernen)"), M("Betriebsanweisungen aushängen")]},
+        {"activity": "Gasgeräte", "hazard": "Gasleck, CO-Bildung, Brand/Explosion", "sources": ["Gasherde","Leitungen"], "existing": ["Dichtheitsprüfung"], "measures":[M("Gaswarnmelder","T (Technisch)"), M("Leckcheck vor Inbetriebnahme")]},
+        {"activity": "Warenannahme/Hubwagen", "hazard": "Quetschungen, Heben/Tragen, Verkehrswege", "sources": ["Rollcontainer","Hubwagen"], "existing": ["Hebehilfen"], "measures":[M("Wege kennzeichnen"), M("Kurzunterweisung Heben/Tragen","Q (Qualifikation/Unterweisung)")]},
+        {"activity": "Altöl/Müll entsorgen", "hazard": "Verbrennung bei heißem Öl, Schnitt/Infektion", "sources": ["Altöl","Müllsack"], "existing": ["Abkühlen"], "measures":[M("Deckel-Transportbehälter","T (Technisch)"), M("Handschutz verpflichtend","P (PSA)")]},
+        {"activity": "TK-/Kühlräume", "hazard": "Kälte, Rutschgefahr, Einsperr-Risiko", "sources": ["Kühlzelle","TK"], "existing": ["Kälteschutz"], "measures":[M("Tür-Notöffnung prüfen","T (Technisch)"), M("Aufenthaltsdauer begrenzen")]},
+        {"activity": "Allergenmanagement", "hazard": "Kreuzkontamination/Allergene", "sources": ["Zutatenwechsel"], "existing": ["Kennzeichnung"], "measures":[M("Rein-/Unrein-Organisation"), M("Unterweisung LMIV","Q (Qualifikation/Unterweisung)")]},
+        {"activity": "Elektrische Kleingeräte", "hazard": "Stromschlag, Brandrisiko", "sources": ["Mixer","Pürierstab"], "existing": ["Sichtprüfung"], "measures":[M("Prüfintervall ortsveränderliche Geräte","O (Organisatorisch)")]},
     ],
     "Housekeeping": [
-        {
-            "activity": "Betten machen",
-            "hazard": "Rücken-/Schulterbelastung, Verdrehungen",
-            "sources": ["Schwere Matratzen", "Beengte Bereiche"],
-            "existing": ["Arbeitstechnik", "Höhenverstellbare Wagen"],
-            "measures": [
-                {"title": "Stecklaken-/Ecken-Technik schulen", "stop_level": "Q (Qualifikation/Unterweisung)"},
-                {"title": "Leichtere Bettwaren beschaffen", "stop_level": "S (Substitution/Quelle entfernen)"}
-            ]
-        },
-        {
-            "activity": "Sanitärreinigung",
-            "hazard": "Chemikalienreizungen, Aerosole",
-            "sources": ["Reiniger/Desinfektion", "Sprühflaschen"],
-            "existing": ["Hautschutzplan", "Hand-/Augenschutz"],
-            "measures": [
-                {"title": "Vordosierte Kartuschen statt Sprühnebel", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Dosierstation & Piktogramme", "stop_level": "T (Technisch)"}
-            ]
-        },
-        {
-            "activity": "Fensterreinigung innen",
-            "hazard": "Sturz, Schnitt an Glas",
-            "sources": ["Fensterfronten", "Tritte/Leitern"],
-            "existing": ["Leiterprüfung", "Standflächen sichern"],
-            "measures": [
-                {"title": "Teleskopstiele statt Leiter (wo möglich)", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Schnittfeste Handschuhe bei Bruchgefahr", "stop_level": "P (PSA)"}
-            ]
-        }
+        {"activity": "Betten machen", "hazard": "Rücken-/Schulterbelastung, Verdrehungen", "sources": ["Matratzen"], "existing": ["Arbeitstechnik"], "measures":[M("Ecken-Technik schulen","Q (Qualifikation/Unterweisung)"), M("Leichtere Bettwaren","S (Substitution/Quelle entfernen)")]},
+        {"activity": "Sanitärreinigung", "hazard": "Chemikalienreizungen, Aerosole", "sources": ["Reiniger"], "existing": ["Hautschutzplan"], "measures":[M("Dosierstation/Piktogramme","T (Technisch)"), M("Sprühnebel vermeiden","S (Substitution/Quelle entfernen)")]},
+        {"activity": "Fenster/Glas innen", "hazard": "Sturz, Schnitt an Glas", "sources": ["Leitern","Glas"], "existing": ["Leiterprüfung"], "measures":[M("Teleskopstiele statt Leiter","S (Substitution/Quelle entfernen)"), M("Schnittfeste Handschuhe","P (PSA)")]},
+        {"activity": "Wäschetransport", "hazard": "Heben/Tragen, Quetschungen", "sources": ["Wäschewagen"], "existing": ["Schiebehilfen"], "measures":[M("Lastbegrenzung"), M("Türen offen sichern","O (Organisatorisch)")]},
+        {"activity": "Abfallentsorgung", "hazard": "Stich-/Schnittverletzungen, Infektionsgefahr", "sources": ["Scherben","Nadeln"], "existing": ["Feste Behälter"], "measures":[M("Sharps-Boxen","T (Technisch)"), M("Meldeweg Nadel-/Scherbenfund")]},
     ],
     "Service/Bar": [
-        {
-            "activity": "Heißgetränke zubereiten",
-            "hazard": "Verbrühungen/Verbrennungen",
-            "sources": ["Kaffeemaschine", "Wasserkocher", "Dampflanze"],
-            "existing": ["Hitzeschutz", "Sichere Ablagen"],
-            "measures": [
-                {"title": "Dampflanzen-Routine (Ablassen vor Nutzung)", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "CO₂/Zapfanlage & Flaschenwechsel",
-            "hazard": "Erstickungsgefahr, Hochdruck",
-            "sources": ["CO₂-Flaschen", "Keller"],
-            "existing": ["CO₂-Warner/Lüftung", "Flaschen sichern"],
-            "measures": [
-                {"title": "CO₂-Sensoren testen & dokumentieren", "stop_level": "T (Technisch)"},
-                {"title": "Wechsel nur zu zweit, nach Belüftung", "stop_level": "O (Organisatorisch)"}
-            ]
-        }
+        {"activity":"Heißgetränke zubereiten","hazard":"Verbrühungen/Verbrennungen","sources":["Kaffeemaschine"],"existing":["Hitzeschutz"],"measures":[M("Dampflanze abblasen"),M("Handschutz bereit","P (PSA)")]},
+        {"activity":"Flambieren/Offene Flamme","hazard":"Brand/Alkoholdämpfe","sources":["Brenner","Spirituosen"],"existing":["Abstand"],"measures":[M("Nur geschultes Personal"),M("Löschmittel bereit")]},
+        {"activity":"CO₂-Zapfanlage/Flaschenwechsel","hazard":"Erstickungsgefahr, Hochdruck","sources":["CO₂-Flaschen"],"existing":["CO₂-Warner"],"measures":[M("Sensorentest dokumentieren","T (Technisch)"),M("Wechsel nur zu zweit")]},
+        {"activity":"Gläser polieren/Bruch","hazard":"Schnittverletzungen","sources":["Glas"],"existing":["Entsorgung"],"measures":[M("Polierhandschuhe","P (PSA)")]},
     ],
     "Technik/Haustechnik": [
-        {
-            "activity": "Elektroarbeiten (E-Fachkräfte/EUP)",
-            "hazard": "Elektrischer Schlag, Lichtbogen",
-            "sources": ["Verteilungen", "Feuchte Bereiche"],
-            "existing": ["Freischalten/Sperren/Kennzeichnen (LOTO)"],
-            "measures": [
-                {"title": "LOTO-Verfahren dokumentieren", "stop_level": "O (Organisatorisch)"},
-                {"title": "Spannungsprüfer/geeignete PSA", "stop_level": "T (Technisch)"}
-            ]
-        },
-        {
-            "activity": "Heißarbeiten (Schweißen/Trennen)",
-            "hazard": "Brand/Explosion, Rauch",
-            "sources": ["Schweißgerät", "Schneidbrenner"],
-            "existing": ["Heißarbeitsgenehmigung", "Feuerwache/Nachkontrolle"],
-            "measures": [
-                {"title": "Funkenschutz/Abschirmungen bereitstellen", "stop_level": "T (Technisch)"},
-                {"title": "Löschmittel/Feuerlöscher bereit halten", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
+        {"activity":"Elektroarbeiten (EUP/EFK)","hazard":"Elektrischer Schlag, Lichtbogen","sources":["Verteilungen"],"existing":["LOTO"],"measures":[M("LOTO-Verfahren dokumentieren"),M("PSA+Prüfer anwenden","T (Technisch)")]},
+        {"activity":"Heißarbeiten (Schweißen/Trennen)","hazard":"Brand/Explosion, Rauch","sources":["Schweißgerät"],"existing":["Genehmigung","Feuerwache"],"measures":[M("Funkenschutz","T (Technisch)"),M("Nachkontrolle")]},
+        {"activity":"Dach-/Höhenarbeit","hazard":"Absturz","sources":["Dachkanten"],"existing":["PSAgA"],"measures":[M("Anschlagpunkte prüfen","T (Technisch)"),M("Rettungsplan")]},
     ],
     "Lager/Wareneingang": [
-        {
-            "activity": "Auspacken/Öffnen",
-            "hazard": "Schnittverletzungen, Stolpern",
-            "sources": ["Cuttermesser", "Folien/Umreifungen"],
-            "existing": ["Sichere Messer", "Müll sofort entsorgen"],
-            "measures": [
-                {"title": "Sicherheitsmesser (Klingenrückzug)", "stop_level": "S (Substitution/Quelle entfernen)"},
-                {"title": "Müll-Station nahe Rampe definieren", "stop_level": "O (Organisatorisch)"}
-            ]
-        },
-        {
-            "activity": "Palettieren/Bewegen",
-            "hazard": "Quetschungen, Anfahren",
-            "sources": ["Rollcontainer", "Hubwagen"],
-            "existing": ["Wege markieren", "Langsam fahren"],
-            "measures": [
-                {"title": "Anschläge/Stopper an Rampen", "stop_level": "T (Technisch)"},
-                {"title": "Verkehrsordnung aushängen", "stop_level": "O (Organisatorisch)"}
-            ]
-        }
+        {"activity":"Auspacken/Öffnen","hazard":"Schnittverletzungen, Stolpern","sources":["Cutter","Umreifungen"],"existing":["Sichere Messer"],"measures":[M("Sicherheitsmesser einsetzen","S (Substitution/Quelle entfernen)"),M("Müll-Station nahe Rampe")]},
+        {"activity":"Palettieren/Bewegen","hazard":"Quetschungen, Anfahren","sources":["Rollcontainer","Hubwagen"],"existing":["Wege markieren"],"measures":[M("Stopper an Rampen","T (Technisch)"),M("Verkehrsordnung aushängen")]},
+        {"activity":"Hochregal/Entnahme in Höhe","hazard":"Absturz/Herabfallende Teile","sources":["Leitern","Regale"],"existing":["Leiterprüfung"],"measures":[M("Nur geprüfte Tritte"),M("Lastsicherung kontrollieren")]},
+        {"activity":"TK-Lager/Kälte","hazard":"Kälte, Rutsch","sources":["Eis","Kondenswasser"],"existing":["Kälteschutz"],"measures":[M("Aufenthaltsdauer begrenzen"),M("Eis entfernen/Matten","T (Technisch)")]},
     ],
     "Spa/Wellness": [
-        {
-            "activity": "Sauna/Ofen & Aufguss",
-            "hazard": "Verbrennungen, Brand, Heißdampf",
-            "sources": ["Saunaöfen", "Aufguss"],
-            "existing": ["Abschirmungen", "Nur Befugte"],
-            "measures": [
-                {"title": "Ofenschutzgitter/Temperaturwächter prüfen", "stop_level": "T (Technisch)"},
-                {"title": "Aufgussregeln verbindlich festlegen", "stop_level": "O (Organisatorisch)"}
-            ]
-        }
+        {"activity":"Sauna/Ofen & Aufguss","hazard":"Verbrennungen, Brand, Heißdampf","sources":["Saunaöfen"],"existing":["Abschirmungen"],"measures":[M("Ofenschutz/Temperaturwächter prüfen","T (Technisch)"),M("Aufgussregeln festlegen")]},
+        {"activity":"Pooltechnik/Chemie","hazard":"Gefahrstoffe (Chlor, pH), Gasfreisetzung","sources":["Dosier-/Lagerräume"],"existing":["Lüftung/Absaugung"],"measures":[M("Auffangwannen/Trennung","T (Technisch)"),M("Freigabe mit Gaswarner")]},
+        {"activity":"Nassbereiche","hazard":"Rutsch-/Sturzgefahr","sources":["Fliesen","Wasser"],"existing":["Rutschhemmung"],"measures":[M("Rutschmatten/Beläge prüfen","T (Technisch)"),M("Sofort-Wisch-Regel & Sperrung")]},
     ],
     "Rezeption": [
-        {
-            "activity": "Front Office/Gästekommunikation",
-            "hazard": "Psychische Belastung, Konflikte",
-            "sources": ["Beschwerden", "Stoßzeiten"],
-            "existing": ["Deeskalationstraining", "Pausenplanung"],
-            "measures": [
-                {"title": "Stoßzeiten doppelt besetzen", "stop_level": "O (Organisatorisch)"}
-            ]
-        }
+        {"activity":"Front Office/Gästekommunikation","hazard":"Psychische Belastung, Konflikte","sources":["Stoßzeiten"],"existing":["Deeskalation"],"measures":[M("Stoßzeiten doppelt besetzen")]},
+        {"activity":"Nacht-/Alleinarbeit","hazard":"Überfall/Bedrohung, Ermüdung","sources":["Nachtschicht"],"existing":["Alarmtaster"],"measures":[M("Stillen Alarm testen","T (Technisch)"),M("Zwei-Personen-Regel nach Risiko")]},
+        {"activity":"Bildschirm/Kasse","hazard":"Ergonomie, Augenbelastung","sources":["Monitore"],"existing":["Ergonomiecheck"],"measures":[M("20-20-20-Regel & Mikropausen"),M("Sehtest/Bildschirmbrille","Q (Qualifikation/Unterweisung)")]},
     ],
     "Verwaltung": [
-        {
-            "activity": "Bildschirmarbeit",
-            "hazard": "Haltungs-/Augenbelastung",
-            "sources": ["Sitzplätze", "Monitore"],
-            "existing": ["Angepasster Arbeitsplatz", "Höhenverstellbarer Tisch/Stuhl"],
-            "measures": [
-                {"title": "20-20-20-Regel & Mikropausen einführen", "stop_level": "O (Organisatorisch)"},
-                {"title": "Sehtest/Bildschirmbrille anbieten", "stop_level": "Q (Qualifikation/Unterweisung)"}
-            ]
-        }
+        {"activity":"Bildschirmarbeit","hazard":"Haltungs-/Augenbelastung","sources":["Sitzplätze","Monitore"],"existing":["Höhenverstellbar"],"measures":[M("Monitorhöhe/Abstand einstellen","T (Technisch)"),M("Mikropausenregelung")]},
+        {"activity":"Laserdrucker/Toner","hazard":"Feinstaub, Hautkontakt","sources":["Tonerwechsel"],"existing":["Lüftung"],"measures":[M("Wechselhandschuhe/Abfallbeutel","T (Technisch)")]},
     ],
     "Außenbereiche": [
-        {
-            "activity": "Gartenpflege/Mähen",
-            "hazard": "Projektilwurf, Lärm",
-            "sources": ["Rasenmäher/Trimmer"],
-            "existing": ["Schutzbrille", "Gehörschutz"],
-            "measures": [
-                {"title": "Stein-/Fremdkörperkontrolle vor Start", "stop_level": "O (Organisatorisch)"},
-                {"title": "Schutzvisier/Gehörschutz bereitstellen", "stop_level": "P (PSA)"}
-            ]
-        }
-    ]
+        {"activity":"Gartenpflege/Mähen","hazard":"Projektilwurf, Lärm","sources":["Rasenmäher"],"existing":["Schutzbrille","Gehörschutz"],"measures":[M("Steinkontrolle vor Start"),M("Visier/Gehörschutz","P (PSA)")]},
+        {"activity":"Hecken-/Baumschnitt","hazard":"Schnittverletzung, Absturz","sources":["Heckenschere","Leiter"],"existing":["Leiter sichern"],"measures":[M("Teleskopgeräte statt Leiter","S (Substitution/Quelle entfernen)")]},
+        {"activity":"Winterdienst","hazard":"Rutschen, Kälte","sources":["Eis/Schnee"],"existing":["Räum-/Streuplan"],"measures":[M("Rutschhemmende Spikes/Schuhe","P (PSA)"),M("Prioritätswege & Frühstartplan")]},
+    ],
 }
 
 LIB_BAECKEREI = {
     "Produktion": [
-        {"activity": "Backen am Etagen-/Stikkenofen", "hazard": "Hitze/Verbrennung, Dampf", "sources": ["Öfen", "Backwagen"], "existing": ["Hitzeschutz"], "measures":[
-            {"title":"Backwagen fixieren & Handschutz nutzen","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Knetmaschine/Spiral-/Hubkneter", "hazard": "Eingezogenwerden/Quetschen", "sources": ["Knetmaschine"], "existing": ["Schutzhaube", "Not-Aus"], "measures":[
-            {"title":"Hauben-/Not-Aus-Prüfplan","stop_level":"T (Technisch)"}]},
-        {"activity": "Teigteiler/Rundwirker", "hazard": "Quetschen/Schnitt", "sources": ["Teigteiler", "Rundwirker"], "existing": ["Schutzvorrichtungen"], "measures":[
-            {"title":"Nur mit Werkzeug reinigen (stromlos)","stop_level":"Q (Qualifikation/Unterweisung)"}]},
-        {"activity": "Fritteuse/Schmalzbacken", "hazard": "Fettbrand, Verbrennung", "sources": ["Fritteuse"], "existing": ["Fettbrandlöscher"], "measures":[
-            {"title":"Ölwechselplan/Temperaturgrenzen","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Mehlstaub/Abwiegen", "hazard": "Staubexposition, pot. Explosion", "sources": ["Mehlstaub"], "existing": ["Absaugung/Lüftung"], "measures":[
-            {"title":"Staubarme Dosierung/geschl. Systeme","stop_level":"S (Substitution/Quelle entfernen)"}]},
-        {"activity": "Schockfrosten/Kühlräume", "hazard": "Kälte/Rutschgefahr", "sources": ["TK", "Kühlräume"], "existing": ["Kälteschutz"], "measures":[
-            {"title":"Aufenthaltsdauer begrenzen","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Reinigung/Desinfektion", "hazard": "Chemikalien/Ätzwirkung", "sources": ["Reiniger/Desinfektion"], "existing": ["Haut-/Augenschutz"], "measures":[
-            {"title":"Dosierstationen & Betriebsanweisungen","stop_level":"T (Technisch)"}]},
+        {"activity":"Backen am Etagen-/Stikkenofen","hazard":"Hitze/Verbrennung, Dampf","sources":["Öfen","Backwagen"],"existing":["Hitzeschutz"],"measures":[M("Backwagen fixieren"),M("Hitzeschutzhandschuhe","P (PSA)")]},
+        {"activity":"Knetmaschine/Spiral-/Hubkneter","hazard":"Eingezogenwerden/Quetschen","sources":["Knetmaschine"],"existing":["Schutzhaube","Not-Aus"],"measures":[M("Hauben-/Not-Aus-Prüfplan","T (Technisch)")]},
+        {"activity":"Teigteiler/Rundwirker","hazard":"Quetschen/Schnitt","sources":["Teigteiler","Rundwirker"],"existing":["Schutzvorrichtungen"],"measures":[M("Reinigung nur stromlos")]},
+        {"activity":"Ausziehen/Ofenschießen","hazard":"Verbrennung/Überlastung","sources":["Schießer","Bleche"],"existing":["Ofenhandschuhe"],"measures":[M("Zweitperson bei schweren Wagen")]},
+        {"activity":"Fritteuse/Schmalzgebäck","hazard":"Fettbrand/Verbrennung","sources":["Fritteuse"],"existing":["Fettbrandlöscher"],"measures":[M("Öltemperatur/Wechselplan")]},
+        {"activity":"Mehlstaub/Abwiegen","hazard":"Staubexposition, ggf. Explosion","sources":["Mehlstaub"],"existing":["Absaugung"],"measures":[M("Staubarme Dosierung","S (Substitution/Quelle entfernen)")]},
+        {"activity":"Schockfrosten/Kühlräume","hazard":"Kälte/Rutsch","sources":["TK","Kühlräume"],"existing":["Kälteschutz"],"measures":[M("Aufenthaltsdauer begrenzen")]},
+        {"activity":"Reinigung/Desinfektion","hazard":"Chemikalien/Ätzwirkung","sources":["Reiniger"],"existing":["Haut-/Augenschutz"],"measures":[M("Dosierstationen & BA","T (Technisch)")]},
     ],
     "Verkauf": [
-        {"activity": "Brotschneiden/Brotschneidemaschine", "hazard": "Schnittverletzung", "sources": ["Brotschneider"], "existing": ["Schutzhaube"], "measures":[
-            {"title":"Nur befugte Bedienung","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Heißgetränke", "hazard": "Verbrühung", "sources": ["Kaffeemaschine"], "existing": ["Hitzeschutz"], "measures":[
-            {"title":"Dampflanze vorher abblasen","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Kassentätigkeit", "hazard": "Ergonomie, Überfallrisiko (einzelfallabh.)", "sources": ["Kasse"], "existing": ["Schulung"], "measures":[
-            {"title":"Kassenrichtlinie/Deeskalation","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Brotschneidemaschine","hazard":"Schnittverletzung","sources":["Brotschneider"],"existing":["Schutzhaube"],"measures":[M("Nur befugte Bedienung")]},
+        {"activity":"Heißgetränke","hazard":"Verbrühung","sources":["Kaffeemaschine"],"existing":["Hitzeschutz"],"measures":[M("Dampflanze abblasen")]},
+        {"activity":"Kasse/Überfallrisiko","hazard":"Konflikt/Überfall (betriebsabhängig)","sources":["Kasse"],"existing":["Schulung"],"measures":[M("Deeskalation/Regelwerk")]},
+        {"activity":"Allergenkennzeichnung","hazard":"Fehlkennzeichnung","sources":["Backwaren"],"existing":["Kennzeichnung"],"measures":[M("Vier-Augen-Prinzip Etiketten")]},
     ],
     "Logistik": [
-        {"activity": "Lieferung/Backwagen", "hazard": "Quetschungen/Sturz", "sources": ["Backwagen", "Rampe"], "existing": ["Sichern/Stopper"], "measures":[
-            {"title":"Rampe sichern/Stopper nutzen","stop_level":"T (Technisch)"}]},
+        {"activity":"Lieferung/Backwagen","hazard":"Quetschungen/Sturz","sources":["Backwagen","Rampe"],"existing":["Stopper"],"measures":[M("Rampe sichern","T (Technisch)")]},
+        {"activity":"Palettieren/Transport","hazard":"Anfahren/Quetschen","sources":["Paletten","Hubwagen"],"existing":["Wegeordnung"],"measures":[M("Vorfahrt/Signale aushängen")]},
     ]
 }
 
 LIB_FLEISCHEREI = {
     "Produktion": [
-        {"activity": "Bandsäge", "hazard": "Schnitt/Amputation", "sources": ["Bandsäge"], "existing": ["Schutzhaube", "Not-Aus"], "measures":[
-            {"title":"Nur befugte Bedienung, Reinigung stromlos","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Fleischwolf", "hazard": "Eingezogenwerden", "sources": ["Fleischwolf"], "existing": ["Stopfer", "Schutz"], "measures":[
-            {"title":"Stopfer konsequent nutzen","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Kutter", "hazard": "Schnitt/Schlag", "sources": ["Kutter"], "existing": ["Haube", "Verriegelung"], "measures":[
-            {"title":"Verriegelung prüfen, nur stromlos reinigen","stop_level":"T (Technisch)"}]},
-        {"activity": "Vakuumierer/Schrumpfer", "hazard": "Verbrennung/Quetschung", "sources": ["Heißsiegel"], "existing": ["Hitzeschutz"], "measures":[
-            {"title":"Heißsiegelzonen markieren","stop_level":"T (Technisch)"}]},
-        {"activity": "Kühl-/TK-Lager", "hazard": "Kälte/Rutsch", "sources": ["Kühl/TK"], "existing": ["Kälteschutz"], "measures":[
-            {"title":"Zeitbegrenzung/Matten","stop_level":"O (Organisatorisch)"}]},
-        {"activity": "Reinigung/Desinfektion", "hazard": "Chemische Belastung", "sources": ["Reiniger"], "existing": ["PSA"], "measures":[
-            {"title":"Dosier-/Sicherheitsdatenblatt an Station","stop_level":"T (Technisch)"}]},
+        {"activity":"Bandsäge","hazard":"Schnitt/Amputation","sources":["Bandsäge"],"existing":["Schutzhaube","Not-Aus"],"measures":[M("Nur befugte Bedienung"),M("Reinigung stromlos")]},
+        {"activity":"Fleischwolf","hazard":"Eingezogenwerden","sources":["Fleischwolf"],"existing":["Stopfer","Schutz"],"measures":[M("Stopfer konsequent nutzen")]},
+        {"activity":"Kutter","hazard":"Schnitt/Schlag","sources":["Kutter"],"existing":["Haube","Verriegelung"],"measures":[M("Verriegelung prüfen","T (Technisch)")]},
+        {"activity":"Vakuumierer/Schrumpfer","hazard":"Verbrennung/Quetschung","sources":["Heißsiegel"],"existing":["Hitzeschutz"],"measures":[M("Heißzonen markieren","T (Technisch)")]},
+        {"activity":"Kühl-/TK-Lager","hazard":"Kälte/Rutsch","sources":["Kühl/TK"],"existing":["Kälteschutz"],"measures":[M("Zeitbegrenzung/Matten")]},
+        {"activity":"Reinigung/Desinfektion","hazard":"Chemische Belastung","sources":["Reiniger"],"existing":["PSA"],"measures":[M("SDB/Betriebsanweisungen an Station","T (Technisch)")]},
+        {"activity":"Räuchern/Heißräuchern","hazard":"Rauch/Verbrennung/CO","sources":["Räucherkammer"],"existing":["Abluft"],"measures":[M("CO-Warnung falls nötig","T (Technisch)")]},
     ],
     "Verkauf": [
-        {"activity": "Aufschnitt/Bedienung", "hazard": "Schnittverletzung", "sources": ["Aufschnitt"], "existing": ["Schutzhaube"], "measures":[
-            {"title":"Messerschulung/Handschutz bei Bedarf","stop_level":"Q (Qualifikation/Unterweisung)"}]},
-        {"activity": "Heißtheke", "hazard": "Verbrennung", "sources": ["Heiße Theken"], "existing": ["Hitzeschutz"], "measures":[
-            {"title":"Abdeckung/Abstellen sichern","stop_level":"T (Technisch)"}]},
+        {"activity":"Aufschnitt/Bedienung","hazard":"Schnittverletzung","sources":["Aufschnitt"],"existing":["Schutzhaube"],"measures":[M("Messerschulung/Handschutz","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Heißtheke","hazard":"Verbrennung","sources":["Heiße Theken"],"existing":["Hitzeschutz"],"measures":[M("Abdeckung/Abstellen sichern","T (Technisch)")]},
     ]
 }
 
 LIB_KANTINE = {
     "Küche": [
-        {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed. je nach Modell"],"measures":[
-            {"title":"Kipp-Prozess standardisieren","stop_level":"O (Organisatorisch)"}]},
-        {"activity":"Tablettförderband/Spülstraße","hazard":"Einklemm-/Scherstellen, Heißwasser/Dampf","sources":["Bandspülmaschine"],"existing":["Abdeckungen","Not-Aus"],"measures":[
-            {"title":"Nur befugte Bedienung, Hauben zu","stop_level":"O (Organisatorisch)"}]},
-        {"activity":"Ausgabe/Frontcooking","hazard":"Verbrennung, Kontakt mit Gästen","sources":["Wärmebrücken","Pfannen"],"existing":["Abschirmung","Greifzonen"],"measures":[
-            {"title":"Abstand/Abschirmung zu Gastbereichen","stop_level":"T (Technisch)"}]},
+        {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed."],"measures":[M("Kipp-Prozess standardisieren")]},
+        {"activity":"Tablettförderband/Spülstraße","hazard":"Einklemm-/Scherstellen, Heißwasser/Dampf","sources":["Bandspülmaschine"],"existing":["Abdeckungen","Not-Aus"],"measures":[M("Nur befugte Bedienung")]},
+        {"activity":"Ausgabe/Frontcooking","hazard":"Verbrennung, Kontakt mit Gästen","sources":["Wärmebrücken","Pfannen"],"existing":["Abschirmung","Greifzonen"],"measures":[M("Abstand/Abschirmung","T (Technisch)")]},
+        {"activity":"Regenerieren/Heißluftwagen","hazard":"Verbrennung, Dampf","sources":["Heißluftwagen"],"existing":["Hitzeschutz"],"measures":[M("Türöffnungsroutine"),M("Schutzhandschuhe","P (PSA)")]},
     ],
     "Logistik": [
-        {"activity":"Transportwagen/Tablettwagen","hazard":"Quetschen/Stolpern","sources":["Rollwagen","Aufzüge"],"existing":["Wege frei"],"measures":[
-            {"title":"Lastbegrenzung/Wegepriorität","stop_level":"O (Organisatorisch)"}]},
+        {"activity":"Transportwagen/Tablettwagen","hazard":"Quetschen/Stolpern","sources":["Rollwagen","Aufzüge"],"existing":["Wege frei"],"measures":[M("Lastbegrenzung/Wegepriorität")]},
+        {"activity":"Annahme/Kommissionierung","hazard":"Schnitt/Heben/Tragen","sources":["Kisten","Folien"],"existing":["Sichere Messer","Rollwagen"],"measures":[M("Sicherheitsmesser einsetzen","S (Substitution/Quelle entfernen)")]},
     ]
 }
 
 LIB_KONDITOREI = {
     "Produktion": [
-        {"activity":"Zucker kochen/Karamell","hazard":"Heißsirup/Verbrennung","sources":["Kocher"],"existing":["Hitzeschutz"],"measures":[
-            {"title":"Schutzbrille, langsames Aufgießen","stop_level":"P (PSA)"}]},
-        {"activity":"Kuvertüre/Temperieren","hazard":"Hitze, Spritzer","sources":["Bad/Tempering"],"existing":["Hitzeschutz"],"measures":[
-            {"title":"Deckel/Spritzschutz nutzen","stop_level":"T (Technisch)"}]},
-        {"activity":"Kleingeräte/Rührwerke","hazard":"Scher-/Einklemmstellen","sources":["Rührwerk"],"existing":["Schutz","Not-Aus"],"measures":[
-            {"title":"Nur stromlos reinigen","stop_level":"O (Organisatorisch)"}]},
-        {"activity":"Kühl-/TK","hazard":"Kälte/Rutsch","sources":["Kühl/TK"],"existing":["Kälteschutz"],"measures":[
-            {"title":"Aufenthalt begrenzen/Eis entfernen","stop_level":"O (Organisatorisch)"}]},
-        {"activity":"Reinigung","hazard":"Chemikalien","sources":["Reiniger"],"existing":["PSA"],"measures":[
-            {"title":"Dosierhilfen/Betriebsanweisung","stop_level":"T (Technisch)"}]},
+        {"activity":"Zucker kochen/Karamell","hazard":"Heißsirup/Verbrennung","sources":["Kocher"],"existing":["Hitzeschutz"],"measures":[M("Schutzbrille & langsames Aufgießen","P (PSA)")]},
+        {"activity":"Kuvertüre/Temperieren","hazard":"Hitze, Spritzer","sources":["Bad/Tempering"],"existing":["Hitzeschutz"],"measures":[M("Deckel/Spritzschutz","T (Technisch)")]},
+        {"activity":"Kleingeräte/Rührwerke","hazard":"Scher-/Einklemmstellen","sources":["Rührwerk"],"existing":["Schutz","Not-Aus"],"measures":[M("Nur stromlos reinigen")]},
+        {"activity":"Kühl-/TK","hazard":"Kälte/Rutsch","sources":["Kühl/TK"],"existing":["Kälteschutz"],"measures":[M("Aufenthalt begrenzen/Eis entfernen")]},
+        {"activity":"Reinigung","hazard":"Chemikalien","sources":["Reiniger"],"existing":["PSA"],"measures":[M("Dosierhilfen/Betriebsanweisung","T (Technisch)")]},
     ],
     "Verkauf/Café": [
-        {"activity":"Kaffeemaschine/Heißgetränke","hazard":"Verbrühung","sources":["Dampflanze"],"existing":["Hitzeschutz"],"measures":[
-            {"title":"Dampflanze abblasen vor Nutzung","stop_level":"O (Organisatorisch)"}]},
-        {"activity":"Tortenmesser/Glasvitrine","hazard":"Schnitt/Glasschaden","sources":["Glas","Messer"],"existing":["Sichere Entsorgung"],"measures":[
-            {"title":"Polier-/Schnittschutzhandschuhe nach Bedarf","stop_level":"P (PSA)"}]},
+        {"activity":"Kaffeemaschine/Heißgetränke","hazard":"Verbrühung","sources":["Dampflanze"],"existing":["Hitzeschutz"],"measures":[M("Dampflanze abblasen")]},
+        {"activity":"Tortenmesser/Glasvitrine","hazard":"Schnitt/Glasschaden","sources":["Glas","Messer"],"existing":["Sichere Entsorgung"],"measures":[M("Polier-/Schnittschutzhandschuhe","P (PSA)")]},
     ]
+}
+
+# NEU: Brauerei
+LIB_BRAUEREI = {
+    "Sudhaus": [
+        {"activity":"Maischen/Kochen im Sudkessel","hazard":"Heißdampf/Verbrühung, CO₂ beim Kochen","sources":["Sudkessel","Whirlpool"],"existing":["Abschrankung","Hitzeschutz"],"measures":[M("Deckel & Dampfableitung prüfen","T (Technisch)"),M("Heißarbeiten vermeiden, Vorsicht beim Öffnen")]},
+        {"activity":"Whirlpool/Trubabzug","hazard":"Heißdampf/Verbrennung","sources":["Whirlpool"],"existing":["Abdeckung"],"measures":[M("Öffnen nur nach Abkühlen")]},
+        {"activity":"Läuterbottich","hazard":"Einsinken/Erstickung bei Einstieg, Heißdampf","sources":["Läuterbottich"],"existing":["Zutritt verboten"],"measures":[M("Befahren als enge Räume regeln (Permit)","O (Organisatorisch)")]},
+        {"activity":"Reinigung CIP","hazard":"Ätz-/Reizwirkung, Gasbildung","sources":["Laugen/Säuren"],"existing":["Dosierung","BA"],"measures":[M("CIP-Schläuche sichern","T (Technisch)"),M("Augendusche/Notdusche prüfen","T (Technisch)")]},
+    ],
+    "Gär-/Keller": [
+        {"activity":"Gär-/Lagertanks","hazard":"CO₂-Ansammlung/Erstickung, Druck","sources":["Gärtank"],"existing":["CO₂-Warner","Lüftung"],"measures":[M("Warner testen & loggen","T (Technisch)"),M("Freimessen vor Einstieg")]},
+        {"activity":"Druckbehälter/Überdruck","hazard":"Explosion/Druckverletzung","sources":["Tankdruck"],"existing":["Sicherheitsventile"],"measures":[M("SV-Prüfungen dokumentieren","O (Organisatorisch)")]},
+        {"activity":"Hefeernte/Umfüllen","hazard":"Biologische Gefährdung, Rutsch","sources":["Hefeschlamm"],"existing":["Handschutz"],"measures":[M("Spritzschutz & Kennzeichnung","T (Technisch)")]},
+    ],
+    "Abfüllung/Fasskeller": [
+        {"activity":"Fassreinigung/Spülen","hazard":"CO₂/Restdruck, Chemie","sources":["Fasskeller"],"existing":["Druckentlastung"],"measures":[M("Entlüften/Spülen dokumentieren")]},
+        {"activity":"Fassfüllen/Anstechen","hazard":"Druck, Schläge","sources":["Fass","ZKG"],"existing":["Sichere Kupplungen"],"measures":[M("Schlagschutz/PSA","P (PSA)")]},
+    ],
+    "Wartung/Technik": [
+        {"activity":"CO₂-Flaschenlager","hazard":"Erstickung bei Leck","sources":["Flaschenbündel"],"existing":["CO₂-Warner","Belüftung"],"measures":[M("Dichtheitskontrolle","O (Organisatorisch)")]},
+        {"activity":"Ammoniak-Kälte","hazard":"NH₃-Toxizität/Leck","sources":["Kälteanlage"],"existing":["Gaswarnanlage"],"measures":[M("Alarm-/Rettungsplan","O (Organisatorisch)"),M("Filter/Fluchtgeräte","P (PSA)")]},
+    ],
+}
+
+# NEU: Getränkeabfüllung
+LIB_GETRAENKEABF = {
+    "Sirupe/Konzentrat": [
+        {"activity":"Ansatz Sirup","hazard":"Chemische Reizung (Säuren/Basen), Rutsch","sources":["Zutaten","CIP"],"existing":["Dosierhilfen"],"measures":[M("BA & SDB an Station","T (Technisch)")]},
+        {"activity":"Zuckerhandling","hazard":"Staubexplosion (selten), Ergonomie","sources":["Zucker"],"existing":["Absaugung"],"measures":[M("Staubarme Beschickung","S (Substitution/Quelle entfernen)")]},
+    ],
+    "Gebindehandling": [
+        {"activity":"Leergutannahme/Sortierung","hazard":"Scherben/Schnitt, Lärm","sources":["Kästen","Flaschen"],"existing":["Handschutz","Gehörschutz"],"measures":[M("Scherbenbeseitigung sofort"),M("Lärmmonitoring")]},
+        {"activity":"Waschmaschine","hazard":"Heißlauge, Dampf","sources":["Flaschenwascher"],"existing":["Einhausung"],"measures":[M("Spritzschutz & Handschutz","P (PSA)")]},
+    ],
+    "Füller/Etikettierer": [
+        {"activity":"Füllerbereich","hazard":"Quetschen, Drehteile, Reinigungschemie","sources":["Füller","Transportbänder"],"existing":["Schutzzäune","Lichtgitter"],"measures":[M("Interlocks prüfen","T (Technisch)")]},
+        {"activity":"CO₂-/Kohlensäureversorgung","hazard":"Erstickung, Hochdruck","sources":["CO₂-Tank"],"existing":["CO₂-Warner"],"measures":[M("Umfeld lüften, Sensorcheck","T (Technisch)")]},
+    ],
+    "Palettierung/Logistik": [
+        {"activity":"Packen/Palettierer","hazard":"Einklemm-/Quetschstellen","sources":["Palettierer","Stretch"],"existing":["Schutzzonen"],"measures":[M("Sperrkreis & Freigabeprozesse")]},
+        {"activity":"Flurförderzeuge","hazard":"Anfahren/Kollision","sources":["Stapler","Ameise"],"existing":["Wegeordnung"],"measures":[M("Staplerschein/Unterweisung","Q (Qualifikation/Unterweisung)")]},
+    ]
+}
+
+# NEU: Eisherstellung
+LIB_EIS = {
+    "Produktion": [
+        {"activity":"Pasteurisieren Milchmischung","hazard":"Verbrühung, Dampf","sources":["Pasteur"],"existing":["Hitzeschutz"],"measures":[M("Temperatur/Zeiten protokollieren")]},
+        {"activity":"Homogenisieren/Mischen","hazard":"Einklemm-/Scherstellen","sources":["Homogenisator","Rührwerk"],"existing":["Schutzhauben"],"measures":[M("Reinigung nur stromlos")]},
+        {"activity":"Gefrieren/Freezer","hazard":"Kälte/Erfrierung, Bewegte Teile","sources":["Kontifreezer"],"existing":["Abdeckungen"],"measures":[M("PSA Kälteschutz","P (PSA)")]},
+        {"activity":"Aromen/Allergene","hazard":"Allergische Reaktionen/Kreuzkontamination","sources":["Nüsse","Milch"],"existing":["Allergenplan"],"measures":[M("Rein-/Unrein-Trennung")]},
+        {"activity":"CIP-Reinigung","hazard":"Säuren/Laugen","sources":["CIP"],"existing":["Dosierung"],"measures":[M("Augendusche/Notdusche","T (Technisch)")]},
+    ],
+    "Verkauf/Theke": [
+        {"activity":"Eistheke/Spatel","hazard":"Biologische Risiken, Temperaturkette","sources":["Theke"],"existing":["Temperaturkontrolle"],"measures":[M("Stichproben/Protokoll")]},
+        {"activity":"Waffeleisen/Heißgeräte","hazard":"Verbrennung","sources":["Waffeleisen"],"existing":["Hitzeschutz"],"measures":[M("Handschutz bereit","P (PSA)")]},
+    ],
+    "Lager": [
+        {"activity":"TK-Lager -30°C","hazard":"Kälte, Rutsch","sources":["TK"],"existing":["Kälteschutz"],"measures":[M("Max. Aufenthaltsdauer/Partnerprinzip")]},
+    ]
+}
+
+# NEU: Event/Catering
+LIB_EVENT = {
+    "Vorbereitung/Produktion": [
+        {"activity":"Mise en place/Kochen vor Ort","hazard":"Verbrennung/Verbrühung, Elektrik mobil","sources":["Induktionsfelder","Gasbrenner"],"existing":["E-Check mobil"],"measures":[M("Zuleitungen sichern"),M("Feuerlöscher bereit")]},
+        {"activity":"Verladen/Transport","hazard":"Quetschung/Heben/Tragen","sources":["Kisten","GN-Behälter"],"existing":["Rollwagen"],"measures":[M("Ladungssicherung"])}
+    ],
+    "Aufbau/Betrieb": [
+        {"activity":"Zelte/Provisorien","hazard":"Wind/Absturz/Stolpern","sources":["Zelt","Kabel"],"existing":["Abspannung","Kabelbrücken"],"measures":[M("Abnahme/Prüfbuch Zelt/Aggregat")]},
+        {"activity":"Stromerzeuger/Aggregate","hazard":"CO/Abgase, Lärm, Stromschlag","sources":["Generator"],"existing":["Abstand/Lüftung"],"measures":[M("Erdung/PRCD-S","T (Technisch)"),M("CO-Warnung in Gebäuden","T (Technisch)")]},
+        {"activity":"Ausgabe/Frontcooking","hazard":"Kontakt Gäste, heiße Flächen","sources":["Rechauds","Pfannen"],"existing":["Abschirmung"],"measures":[M("Greifzonen/Barriere","T (Technisch)")]},
+    ],
+    "Abbau/Reinigung": [
+        {"activity":"Heißgeräte abbauen","hazard":"Verbrennung/Restwärme","sources":["Geräte"],"existing":["Abkühlen"],"measures":[M("Schnittschutzhandschuhe beim Packen","P (PSA)")]},
+    ]
+}
+
+# NEU: Fast Food / Quickservice
+LIB_QSR = {
+    "Küche": [
+        {"activity":"Fritteusenbetrieb","hazard":"Fettbrand, Verbrennung","sources":["Fritteuse"],"existing":["Löschdecke"],"measures":[M("Autom. Löschanlage falls vorhanden prüfen","T (Technisch)"),M("Kein Wasser!")]},
+        {"activity":"Griddle/Flame Broiler","hazard":"Hitze/Verbrennung, Rauch","sources":["Grill"],"existing":["Abzug"],"measures":[M("Reinigungsplan Haube/Filter")]},
+        {"activity":"Slicer/Chopper","hazard":"Schnitt/Scherstellen","sources":["Slicer"],"existing":["Schutz"],"measures":[M("Nur mit Werkzeug reinigen")]},
+        {"activity":"Gefriertruhe/Schockfroster","hazard":"Kälte/Rutsch","sources":["TK"],"existing":["Kälteschutz"],"measures":[M("Eis entfernen")]},
+        {"activity":"Bestellung/Allergene","hazard":"Fehlbestellung/Allergischer Schock","sources":["Kasse","App"],"existing":["Allergenliste"],"measures":[M("Abfrage Allergene im Bestellprozess")]},
+    ],
+    "Service": [
+        {"activity":"Drive-Thru","hazard":"Fahrzeugkontakt/Abgase/Lärm","sources":["Fahrspur"],"existing":["Markierung"],"measures":[M("Sichtbarkeit/Reflexwesten","P (PSA)")]},
+        {"activity":"Getränkespender/CO₂","hazard":"Erstickung/Hochdruck","sources":["CO₂-Flaschen"],"existing":["Befestigung"],"measures":[M("Sensorentest/Wechselprozess")]},
+    ],
+    "Reinigung": [
+        {"activity":"Schaum-/Sprühreinigung","hazard":"Aerosole/Chemie","sources":["Reiniger"],"existing":["PSA"],"measures":[M("Schaumlanze statt Spray","S (Substitution/Quelle entfernen)")]},
+    ]
+}
+
+# NEU: Wäscherei / Textilreinigung
+LIB_WAESCHE = {
+    "Annahme/Vorsortierung": [
+        {"activity":"Schmutzwäscheannahme","hazard":"Biologische Gefährdungen, Stichverletzung","sources":["Schmutzwäsche"],"existing":["Handschutz"],"measures":[M("Sharps-Check/Trennung Unrein/Rein")]},
+        {"activity":"Sortieren/Wiegen","hazard":"Heben/Tragen/Staub","sources":["Säcke","Wäschewagen"],"existing":["Hebehilfen"],"measures":[M("Absaugung an Entleerer","T (Technisch)")]},
+    ],
+    "Waschen/Nassreinigung": [
+        {"activity":"Maschinenbeschickung","hazard":"Einklemm-/Scherstellen, Heißwasser/Dampf","sources":["Waschmaschinen"],"existing":["Not-Aus"],"measures":[M("Türverriegelungen prüfen","T (Technisch)")]},
+        {"activity":"Chemiedosierung","hazard":"Ätz-/Reizwirkung","sources":["Flüssigchemie"],"existing":["Dosieranlage"],"measures":[M("Schlauch-/Kopplungscheck")]},
+    ],
+    "Finish/Trocknen/Mangeln": [
+        {"activity":"Trockner/Mangel","hazard":"Einzugs-/Quetschstellen, Hitze","sources":["Tumbler","Mangel"],"existing":["Hauben","Zweihand"],"measures":[M("Einzugsabstand/Notleinen prüfen","T (Technisch)")]},
+        {"activity":"Bügeln/Dampf","hazard":"Verbrühung/Verbrennung","sources":["Dampfbügel"],"existing":["Hitzeschutz"],"measures":[M("Dampfschläuche prüfen")]},
+    ],
+    "Reparatur/Nähen": [
+        {"activity":"Nähmaschinenarbeit","hazard":"Nadelstich/Ergonomie","sources":["Nähmaschine"],"existing":["Fingerschutz"],"measures":[M("Beleuchtung/Arbeitshöhe anpassen","T (Technisch)")]},
+    ],
 }
 
 INDUSTRY_LIBRARY: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
@@ -539,73 +409,82 @@ INDUSTRY_LIBRARY: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
     "Fleischerei/Metzgerei": LIB_FLEISCHEREI,
     "Gemeinschaftsverpflegung/Kantine": LIB_KANTINE,
     "Konditorei/Café": LIB_KONDITOREI,
+    "Brauerei": LIB_BRAUEREI,
+    "Getränkeabfüllung": LIB_GETRAENKEABF,
+    "Eisherstellung": LIB_EIS,
+    "Event/Catering": LIB_EVENT,
+    "Fast Food/Quickservice": LIB_QSR,
+    "Wäscherei/Textilreinigung": LIB_WAESCHE,
 }
 
 # =========================
-# Vorlagen laden (nach Branche)
+# Vorlagen laden/auswählen
 # =========================
 
-def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]]):
-    """Fügt Bereiche/Tätigkeiten aus einer Branchenvorlage hinzu (anhängen)."""
+def add_template_items(assess: Assessment, template: Dict[str, List[Dict[str, Any]]], selected_keys: Optional[List[str]] = None, industry_name: Optional[str] = None):
     for area, items in template.items():
         for item in items:
+            key = template_item_key(industry_name or assess.industry, area, item)
+            if selected_keys is not None and key not in selected_keys:
+                continue
             hz = Hazard(
-                id=new_id(),
-                area=area,
-                activity=item["activity"],
-                hazard=item["hazard"],
-                sources=item.get("sources", []),
-                existing_controls=item.get("existing", [])
+                id=new_id(), area=area, activity=item["activity"], hazard=item["hazard"],
+                sources=item.get("sources", []), existing_controls=item.get("existing", [])
             )
             for m in item.get("measures", []):
                 hz.additional_measures.append(Measure(
-                    title=m["title"],
-                    stop_level=m["stop_level"],
-                    notes=m.get("notes", "")
+                    title=m["title"], stop_level=m["stop_level"], notes=m.get("notes","")
                 ))
             assess.hazards.append(hz)
 
 def preload_industry(assess: Assessment, industry_name: str, replace: bool = True):
-    """Lädt Branchen-Vorlage; ersetzt vorhandene Gefährdungen oder hängt an."""
     assess.industry = industry_name
     if replace:
         assess.hazards = []
     template = INDUSTRY_LIBRARY.get(industry_name, {})
-    add_template_items(assess, template)
+    add_template_items(assess, template, selected_keys=None, industry_name=industry_name)
+
+def template_item_key(industry: str, area: str, item: Dict[str, Any]) -> str:
+    return slug(industry, area, item.get("activity",""), item.get("hazard",""))
+
+def iter_template_items(industry: str) -> List[Tuple[str, Dict[str, Any], str]]:
+    lib = INDUSTRY_LIBRARY.get(industry, {})
+    out = []
+    for area, items in lib.items():
+        for it in items:
+            out.append((area, it, template_item_key(industry, area, it)))
+    return out
 
 # =========================
 # Streamlit App
 # =========================
 
-st.set_page_config(page_title="Gefährdungsbeurteilung – Branchen (BGN)", layout="wide")
+st.set_page_config(page_title="Gefährdungsbeurteilung – Branchen (BGN) mit Auswahl", layout="wide")
 
-# Session initialisieren (robust)
+# Session init
 if "assessment" not in st.session_state or st.session_state.get("assessment") is None:
     st.session_state.assessment = Assessment(
-        company="Musterbetrieb GmbH",
-        location="Beispielstadt",
-        created_at=date.today().isoformat(),
-        created_by="HSE/SiFa",
+        company="Musterbetrieb GmbH", location="Beispielstadt",
+        created_at=date.today().isoformat(), created_by="HSE/SiFa",
         industry="Hotel/Gastgewerbe",
     )
-    # Standard: Hotel/Gastgewerbe laden
     preload_industry(st.session_state.assessment, "Hotel/Gastgewerbe", replace=True)
 
 assess: Assessment = st.session_state.assessment
 
-# Kopf mit Duplizieren-Button (optional)
+# Kopf
 col_head1, col_head2 = st.columns([0.8, 0.2])
 with col_head1:
-    st.title("Gefährdungsbeurteilung – Branchen (BGN)")
+    st.title("Gefährdungsbeurteilung – Branchen (BGN) mit Checkbox-Auswahl")
 with col_head2:
     if st.button("📄 Duplizieren", key="btn_duplicate"):
         assess.created_at = date.today().isoformat()
         assess.company = f"{assess.company} (Kopie)"
         st.success("Kopie erstellt. Bitte speichern/exportieren.")
 
-st.caption("Struktur: Vorbereiten → Ermitteln → Beurteilen → Maßnahmen → Umsetzen → Wirksamkeit → Dokumentieren → Fortschreiben")
+st.caption("Struktur: Vorlagen auswählen → Vorbereiten → Ermitteln → Beurteilen → Maßnahmen → Umsetzen → Wirksamkeit → Dokumentieren → Fortschreiben")
 
-# Seitenleiste: Meta & Konfiguration & Branchenwahl
+# Sidebar
 with st.sidebar:
     st.header("Stammdaten")
     assess.company = st.text_input("Unternehmen", assess.company, key="meta_company")
@@ -614,48 +493,12 @@ with st.sidebar:
     assess.created_at = st.text_input("Erstellt am (ISO)", assess.created_at, key="meta_created_at")
 
     st.markdown("---")
-    st.subheader("Branche wählen")
-
-    # --- Branchenwahl robust ---
+    st.subheader("Branche wählen (für Vorlagen)")
     options = list(INDUSTRY_LIBRARY.keys())
-    # Assessment aus Session holen/absichern
-    assess_tmp = st.session_state.get("assessment", None)
-    if assess_tmp is None:
-        st.session_state.assessment = Assessment(
-            company="Musterbetrieb GmbH",
-            location="Beispielstadt",
-            created_at=date.today().isoformat(),
-            created_by="HSE/SiFa",
-            industry="Hotel/Gastgewerbe",
-        )
-        preload_industry(st.session_state.assessment, "Hotel/Gastgewerbe", replace=True)
-        assess_tmp = st.session_state.assessment
-
-    current_industry = getattr(assess_tmp, "industry", None) or "Hotel/Gastgewerbe"
-    try:
-        default_idx = options.index(current_industry) if current_industry in INDUSTRY_LIBRARY else 0
-    except Exception:
-        default_idx = 0
-
-    sector = st.selectbox(
-        "Branche",
-        options=options,
-        index=default_idx,
-        key="sel_industry"
-    )
+    current_industry = getattr(assess, "industry", None) or "Hotel/Gastgewerbe"
+    default_idx = options.index(current_industry) if current_industry in options else 0
+    sector = st.selectbox("Branche", options=options, index=default_idx, key="sel_industry")
     st.caption(f"Aktuell geladen: **{assess.industry}**")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("📚 Vorlage ERSETZEN", key="btn_load_replace"):
-            preload_industry(assess, sector, replace=True)
-            st.success(f"Vorlage '{sector}' geladen (ersetzt).")
-            st.rerun()
-    with c2:
-        if st.button("➕ Vorlage ANHÄNGEN", key="btn_load_append"):
-            preload_industry(assess, sector, replace=False)
-            st.success(f"Vorlage '{sector}' hinzugefügt.")
-            st.rerun()
 
     st.markdown("---")
     st.subheader("Risikomatrix (5×5)")
@@ -681,43 +524,98 @@ with st.sidebar:
     if up is not None:
         content = up.read().decode("utf-8")
         st.session_state.assessment = from_json(content)
-        # Fallbacks für alte JSONs:
         if not getattr(st.session_state.assessment, "industry", None):
             st.session_state.assessment.industry = "Hotel/Gastgewerbe"
         st.success("Beurteilung geladen.")
         st.rerun()
 
-# Tabs = Prozessschritte
+# Tabs
 tabs = st.tabs([
-    "1 Vorbereiten", "2 Ermitteln", "3 Beurteilen", "4 Maßnahmen", "5 Umsetzen",
-    "6 Wirksamkeit", "7 Dokumentation", "8 Fortschreiben", "Übersicht"
+    "0 Vorlagen auswählen", "1 Vorbereiten", "2 Ermitteln", "3 Beurteilen", "4 Maßnahmen",
+    "5 Umsetzen", "6 Wirksamkeit", "7 Dokumentation", "8 Fortschreiben", "Übersicht"
 ])
 
-# 1 Vorbereiten
+# 0 Vorlagen auswählen
 with tabs[0]:
+    st.subheader("0) Vorlagen auswählen (Tätigkeiten/Gefährdungen per Häkchen übernehmen)")
+    st.caption("Branche wählen, filtern, Häkchen setzen, dann übernehmen.")
+
+    lib = INDUSTRY_LIBRARY.get(sector, {})
+    all_areas = list(lib.keys())
+    area_filter = st.multiselect("Bereiche filtern", options=all_areas, default=all_areas, key="tmpl_area_filter")
+    text_filter = st.text_input("Textfilter (Activity/Gefährdung enthält…)", key="tmpl_text_filter").strip().lower()
+
+    if "template_checks" not in st.session_state:
+        st.session_state.template_checks = {}
+
+    cols = st.columns([0.24, 0.24, 0.42, 0.10])
+    cols[0].markdown("**Bereich**"); cols[1].markdown("**Tätigkeit**"); cols[2].markdown("**Gefährdung**"); cols[3].markdown("**Auswählen**")
+
+    items = iter_template_items(sector)
+    shown_keys = []
+    for area, item, keyval in items:
+        if area_filter and area not in area_filter:
+            continue
+        if text_filter:
+            blob = f"{item.get('activity','')} {item.get('hazard','')}".lower()
+            if text_filter not in blob:
+                continue
+        shown_keys.append(keyval)
+        c0, c1, c2, c3 = st.columns([0.24, 0.24, 0.42, 0.10])
+        c0.write(area); c1.write(item.get("activity","")); c2.write(item.get("hazard",""))
+        default_checked = st.session_state.template_checks.get(keyval, False)
+        st.session_state.template_checks[keyval] = c3.checkbox(" ", key=f"chk_{keyval}", value=default_checked)
+
+    st.markdown("---")
+    colA, colB, colC = st.columns([0.5,0.25,0.25])
+    with colB:
+        if st.button("Alle sichtbaren markieren", key="btn_mark_all"):
+            for k in shown_keys: st.session_state.template_checks[k] = True
+            st.rerun()
+    with colC:
+        if st.button("Alle sichtbaren demarkieren", key="btn_unmark_all"):
+            for k in shown_keys: st.session_state.template_checks[k] = False
+            st.rerun()
+
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("➕ Ausgewählte übernehmen (ANHÄNGEN)", key="btn_apply_append"):
+            selected = [k for k, v in st.session_state.template_checks.items() if v]
+            add_template_items(assess, lib, selected_keys=selected, industry_name=sector)
+            st.success(f"{len(selected)} Einträge hinzugefügt.")
+    with col2:
+        if st.button("🧹 Ausgewählte übernehmen (ERSETZEN)", key="btn_apply_replace"):
+            selected = [k for k, v in st.session_state.template_checks.items() if v]
+            assess.hazards = []
+            add_template_items(assess, lib, selected_keys=selected, industry_name=sector)
+            assess.industry = sector
+            st.success(f"Vorlage ersetzt. {len(selected)} Einträge übernommen.")
+            st.rerun()
+
+# 1 Vorbereiten
+with tabs[1]:
     st.subheader("1) Vorbereiten")
-    assess.scope_note = st.text_area(
-        "Umfang / Arbeitsbereiche / Beteiligte (SiFa, Betriebsarzt, BR, Führungskräfte, Beschäftigte)",
-        value=assess.scope_note, height=140, key="scope_note"
-    )
-    st.info("Tipp: Branche wählen/prüfen und relevante Bereiche festlegen; Unterlagen (Betriebsanweisungen, SDS, Wartungspläne) sammeln.")
+    assess.industry = st.selectbox("Branche der Beurteilung", options=list(INDUSTRY_LIBRARY.keys()),
+                                   index=list(INDUSTRY_LIBRARY.keys()).index(assess.industry) if assess.industry in INDUSTRY_LIBRARY else 0,
+                                   key="assess_industry")
+    assess.scope_note = st.text_area("Umfang / Arbeitsbereiche / Beteiligte",
+                                     value=assess.scope_note, height=140, key="scope_note")
+    st.info("Mit Tab „0 Vorlagen auswählen“ kannst du weitere Tätigkeiten/Gefährdungen anfügen.")
 
 # 2 Ermitteln
-with tabs[1]:
+with tabs[2]:
     st.subheader("2) Gefährdungen ermitteln")
     colL, colR = st.columns([2,1])
-
     with colL:
         st.markdown("**Gefährdungen (Bearbeiten)**")
         if assess.hazards:
             df = pd.DataFrame([hazard_to_row(h) for h in assess.hazards])
             st.dataframe(df, use_container_width=True, hide_index=True, key="df_hazards")
         else:
-            st.info("Keine Gefährdungen vorhanden. In der Sidebar eine Branchenvorlage laden.")
-
-        with st.expander("➕ Gefährdung hinzufügen"):
+            st.info("Noch keine Gefährdungen. Wähle im Tab „0 Vorlagen auswählen“ Tätigkeiten aus oder füge unten manuell hinzu.")
+        with st.expander("➕ Gefährdung manuell hinzufügen"):
             col1, col2 = st.columns(2)
-            # Bereiche dynamisch aus aktueller Branche + vorhandenen Bereichen generieren
             known_areas = sorted({h.area for h in assess.hazards} | set(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) | {"Sonstiges"})
             area = col1.selectbox("Bereich", known_areas, key="add_area")
             activity = col2.text_input("Tätigkeit", key="add_activity")
@@ -731,16 +629,10 @@ with tabs[1]:
                     existing_controls=[e.strip() for e in existing.split(";") if e.strip()]
                 ))
                 st.success("Gefährdung hinzugefügt.")
-
     with colR:
         st.markdown("**Auswahl & Details**")
         ids = [h.id for h in assess.hazards]
-        sel_id = st.selectbox(
-            "Gefährdung auswählen (ID)",
-            options=["--"] + ids,
-            index=0,
-            key="sel_hazard_edit"
-        )
+        sel_id = st.selectbox("Gefährdung auswählen (ID)", options=["--"] + ids, index=0, key="sel_hazard_edit")
         if sel_id != "--":
             hz = next(h for h in assess.hazards if h.id == sel_id)
             all_areas = list(INDUSTRY_LIBRARY.get(assess.industry, {}).keys()) + ["Sonstiges"]
@@ -758,30 +650,23 @@ with tabs[1]:
                 st.rerun()
 
 # 3 Beurteilen
-with tabs[2]:
-    st.subheader("3) Gefährdungen beurteilen (5×5; NOHL-Logik: Wahrscheinlichkeit × Schwere)")
+with tabs[3]:
+    st.subheader("3) Gefährdungen beurteilen (5×5)")
     thresholds = assess.risk_matrix_thresholds["thresholds"]
     colA, colB = st.columns([1,1])
-
     with colA:
         if not assess.hazards:
-            st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
+            st.info("Keine Gefährdungen vorhanden.")
         else:
-            sel = st.selectbox(
-                "Gefährdung auswählen",
-                options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-                key="sel_hazard_assess"
-            )
+            sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_assess")
             hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
             hz.prob = st.slider("Eintrittswahrscheinlichkeit (1 = sehr selten … 5 = häufig)", 1, 5, hz.prob, key=f"prob_{hz.id}")
             hz.sev = st.slider("Schadensschwere (1 = gering … 5 = katastrophal)", 1, 5, hz.sev, key=f"sev_{hz.id}")
             v, lvl = compute_risk(hz.prob, hz.sev, thresholds)
             hz.risk_value, hz.risk_level = v, lvl
-
-            st.markdown(f"**Risikosumme:** {v}  —  **Stufe:** :{('green' if lvl=='niedrig' else 'orange' if lvl=='mittel' else 'red')}_circle: {lvl}")
-
+            color = "green" if lvl == "niedrig" else "orange" if lvl == "mittel" else "red"
+            st.markdown(f"**Risikosumme:** {v}  —  **Stufe:** :{color}_circle: {lvl}")
             hz.documentation_note = st.text_area("Beurteilungs-/Dokumentationshinweis", value=hz.documentation_note, key=f"doc_note_{hz.id}")
-
     with colB:
         st.markdown("**Schnellübersicht (Top-Risiken)**")
         if assess.hazards:
@@ -792,20 +677,14 @@ with tabs[2]:
             st.caption("Noch keine Daten.")
 
 # 4 Maßnahmen
-with tabs[3]:
+with tabs[4]:
     st.subheader("4) Maßnahmen festlegen (STOP + Q)")
-    st.caption("Zuerst an der Quelle vermeiden/vermindern, dann technisch, organisatorisch, PSA – ggf. Qualifikation/Unterweisung ergänzen.")
-
+    st.caption("Zuerst Quelle vermeiden/vermindern (S), dann Technik (T), Organisation (O), PSA (P) + Qualifikation (Q).")
     if not assess.hazards:
-        st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
+        st.info("Keine Gefährdungen vorhanden.")
     else:
-        sel = st.selectbox(
-            "Gefährdung auswählen",
-            options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-            key="sel_hazard_measures"
-        )
+        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_measures")
         hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
-
         with st.expander("➕ Maßnahme hinzufügen"):
             title = st.text_input("Maßnahme", key=f"m_title_{hz.id}")
             stop = st.selectbox("STOP(+Q)", STOP_LEVELS, index=0, key=f"m_stop_{hz.id}")
@@ -815,20 +694,19 @@ with tabs[3]:
             if st.button("Hinzufügen ➕", key=f"btn_add_measure_{hz.id}"):
                 hz.additional_measures.append(Measure(title=title, stop_level=stop, responsible=responsible, due_date=due.isoformat(), notes=notes))
                 st.success("Maßnahme hinzugefügt.")
-
         if hz.additional_measures:
             mdf = pd.DataFrame([asdict(m) for m in hz.additional_measures])
             st.dataframe(mdf, use_container_width=True, hide_index=True, key=f"df_measures_{hz.id}")
 
 # 5 Umsetzen
-with tabs[4]:
+with tabs[5]:
     st.subheader("5) Maßnahmen umsetzen (Plan/Status)")
-    st.caption("Priorisierung nach Risikosumme; Verantwortliche & Termine festlegen.")
     rows = []
     for h in assess.hazards:
         for m in h.additional_measures:
             rows.append({"ID": h.id, "Bereich": h.area, "Gefährdung": h.hazard, "Risiko": h.risk_value,
-                         "Maßnahme": m.title, "STOP(+Q)": m.stop_level, "Fällig": m.due_date or "", "Status": m.status, "Verantwortlich": m.responsible})
+                         "Maßnahme": m.title, "STOP(+Q)": m.stop_level, "Fällig": m.due_date or "",
+                         "Status": m.status, "Verantwortlich": m.responsible})
     if rows:
         plan = pd.DataFrame(rows).sort_values(by=["Risiko"], ascending=False)
         st.dataframe(plan, use_container_width=True, hide_index=True, key="df_plan")
@@ -836,16 +714,12 @@ with tabs[4]:
         st.info("Noch keine Maßnahmen geplant.")
 
 # 6 Wirksamkeit
-with tabs[5]:
+with tabs[6]:
     st.subheader("6) Wirksamkeit überprüfen")
     if not assess.hazards:
-        st.info("Keine Gefährdungen vorhanden. Bitte Branchenvorlage laden.")
+        st.info("Keine Gefährdungen vorhanden.")
     else:
-        sel = st.selectbox(
-            "Gefährdung auswählen",
-            options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards],
-            key="sel_hazard_review"
-        )
+        sel = st.selectbox("Gefährdung auswählen", options=[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards], key="sel_hazard_review")
         hz = assess.hazards[[f"{h.id} – {h.area}: {h.hazard}" for h in assess.hazards].index(sel)]
         if hz.additional_measures:
             for i, m in enumerate(hz.additional_measures):
@@ -858,19 +732,19 @@ with tabs[5]:
         hz.reviewer = st.text_input("Prüfer/in", value=hz.reviewer, key=f"rev_reviewer_{hz.id}")
 
 # 7 Dokumentation
-with tabs[6]:
+with tabs[7]:
     st.subheader("7) Ergebnisse dokumentieren")
     assess.documentation_note = st.text_area("Dokumentationshinweis (welche Unterlagen, wo abgelegt, Versionierung)", value=assess.documentation_note, height=120, key="doc_note_global")
-    st.markdown("**Nachweise/Beispiele (frei ergänzen):** Betriebsanweisungen, Unterweisungsnachweise, Prüfprotokolle (Leitern/Elektro), Wartungspläne (z. B. Lüftung/Legionellen), Gefahrstoffverzeichnis, Unfallstatistik, Beinahe-Unfälle.")
+    st.markdown("**Nachweise/Beispiele:** Betriebsanweisungen, Unterweisungsnachweise, Prüfprotokolle (Leitern/Elektro), Wartungspläne (z. B. Lüftung/Legionellen), Gefahrstoffverzeichnis, Unfallstatistik, Beinahe-Unfälle.")
 
 # 8 Fortschreiben
-with tabs[7]:
+with tabs[8]:
     st.subheader("8) Fortschreiben")
-    assess.next_review_hint = st.text_area("Anlässe/Fristen (z. B. jährliche Überprüfung, nach Unfällen/Beinaheunfällen, bei Änderungen von Verfahren/Organisation/Arbeitsmitteln)", value=assess.next_review_hint, height=100, key="next_review_hint")
+    assess.next_review_hint = st.text_area("Anlässe/Fristen (regelmäßige Überprüfung, nach Unfällen/Beinaheunfällen, Änderungen)", value=assess.next_review_hint, height=100, key="next_review_hint")
     st.info("Hinweis: Änderungen dokumentieren und Datums-/Namensfeld bei Überprüfung ergänzen.")
 
 # Übersicht
-with tabs[8]:
+with tabs[9]:
     st.subheader("Übersicht & Kennzahlen")
     total = len(assess.hazards)
     high = len([h for h in assess.hazards if h.risk_level in ("hoch", "sehr hoch")])
