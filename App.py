@@ -8,6 +8,10 @@ import re
 
 import pandas as pd
 import streamlit as st
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.formatting.rule import ColorScaleRule
 
 # =========================
 # Datenmodelle
@@ -102,30 +106,195 @@ def new_id(prefix="HZ", n=4) -> str:
     return f"{prefix}-{int(datetime.now().timestamp())}-{ts}"
 
 def dump_excel(assess: Assessment) -> bytes:
+    # --- Datenaufbereitung ---
     hazards_df = pd.DataFrame([hazard_to_row(h) for h in assess.hazards])
     measures_df = pd.DataFrame([r for h in assess.hazards for r in measures_to_rows(h)])
+
+    # Maßnahmen-Plan (Schritt 5) – inkl. Status/Verantwortlich/Fällig
+    plan_rows = []
+    for h in assess.hazards:
+        for m in h.additional_measures:
+            plan_rows.append({
+                "Gefährdungs-ID": h.id,
+                "Bereich": h.area,
+                "Tätigkeit": h.activity,
+                "Gefährdung": h.hazard,
+                "Risikosumme": h.risk_value,
+                "Risikostufe": h.risk_level,
+                "Maßnahme": m.title,
+                "STOP(+Q)": m.stop_level,
+                "Verantwortlich": m.responsible,
+                "Fällig am": m.due_date or "",
+                "Status": m.status,
+                "Hinweis": m.notes,
+            })
+    plan_df = pd.DataFrame(plan_rows)
+
+    # Wirksamkeit (Schritt 6) je Gefährdung
+    review_rows = []
+    for h in assess.hazards:
+        review_rows.append({
+            "Gefährdungs-ID": h.id,
+            "Bereich": h.area,
+            "Tätigkeit": h.activity,
+            "Gefährdung": h.hazard,
+            "Letzte Prüfung": h.last_review or "",
+            "Prüfer/in": h.reviewer,
+            "Beurteilungs-/Dokumentationshinweis": h.documentation_note,
+        })
+    review_df = pd.DataFrame(review_rows)
+
+    # Meta / Stammdaten (Schritt 1)
     meta = {
-        "Unternehmen": assess.company, "Standort": assess.location,
-        "Erstellt am": assess.created_at, "Erstellt von": assess.created_by,
-        "Branche": assess.industry, "Umfang/Scope": assess.scope_note,
-        "Maßnahmenplan-Hinweis": assess.measures_plan_note,
-        "Dokumentationshinweis": assess.documentation_note,
-        "Fortschreibung/Nächster Anlass": assess.next_review_hint
+        "Unternehmen": assess.company,
+        "Standort": assess.location,
+        "Erstellt am": assess.created_at,
+        "Erstellt von": assess.created_by,
+        "Branche": assess.industry,
+        "Umfang/Scope": assess.scope_note,
     }
     meta_df = pd.DataFrame(list(meta.items()), columns=["Feld", "Wert"])
+
+    # Dokumentation (Schritt 7)
+    doc_df = pd.DataFrame(
+        {"Dokumentationshinweis": [assess.documentation_note or ""]}
+    )
+
+    # Fortschreiben (Schritt 8)
+    prog_df = pd.DataFrame(
+        {"Anlässe/Fristen (Fortschreibung)": [assess.next_review_hint or ""]}
+    )
+
+    # Konfiguration
+    thresholds = assess.risk_matrix_thresholds.get("thresholds", [6, 12, 16])
+    conf_df = pd.DataFrame(
+        {
+            "Einstellung": ["Grenze niedrig (≤)", "Grenze mittel (≤)", "Grenze hoch (≤)"],
+            "Wert": [thresholds[0], thresholds[1], thresholds[2]],
+        }
+    )
+
+    # --- Excel schreiben ---
     bio = BytesIO()
     with pd.ExcelWriter(bio, engine="openpyxl") as writer:
-        meta_df.to_excel(writer, sheet_name="00_Meta", index=False)
-        hazards_df.to_excel(writer, sheet_name="10_Gefaehrdungen", index=False)
-        measures_df.to_excel(writer, sheet_name="20_Massnahmen", index=False)
-        thresholds = assess.risk_matrix_thresholds["thresholds"]
-        conf_df = pd.DataFrame(
-            {"Grenzen (Risikosumme)": ["niedrig ≤", "mittel ≤", "hoch ≤", "sehr hoch >"],
-             "Wert": [thresholds[0], thresholds[1], thresholds[2], thresholds[2]]}
-        )
+        # Reihenfolge/Blätter:
+        meta_df.to_excel(writer, sheet_name="01_Stammdaten", index=False)
+        hazards_df.to_excel(writer, sheet_name="10_Gefährdungen", index=False)
+        measures_df.to_excel(writer, sheet_name="20_Maßnahmen", index=False)
+        plan_df.to_excel(writer, sheet_name="30_Plan", index=False)
+        review_df.to_excel(writer, sheet_name="40_Wirksamkeit", index=False)
+        doc_df.to_excel(writer, sheet_name="50_Dokumentation", index=False)
+        prog_df.to_excel(writer, sheet_name="60_Fortschreiben", index=False)
         conf_df.to_excel(writer, sheet_name="90_Konfiguration", index=False)
+
+        # README
+        readme_text = [
+            ["Datei erstellt", datetime.now().strftime("%Y-%m-%d %H:%M")],
+            ["Generator", "Gefährdungsbeurteilung Streamlit-App"],
+            ["Hinweis", "Blätter 10–60 bilden die Prozessschritte ab. "
+                        "Risikofarben auf Blatt 10 beziehen sich auf die Risikosumme."],
+            ["Kontakt", assess.created_by or ""],
+        ]
+        readme_df = pd.DataFrame(readme_text, columns=["Info", "Wert"])
+        readme_df.to_excel(writer, sheet_name="99_README", index=False)
+
+        wb = writer.book
+
+        # Styling Helper
+        header_fill = PatternFill("solid", fgColor="E6EEF8")
+        bold = Font(bold=True)
+        center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        left = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        thin = Side(style="thin", color="DDDDDD")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        def style_sheet(name: str, freeze=True, wide_wrap=True):
+            ws = wb[name]
+            # Überschriften-Format
+            if ws.max_row >= 1:
+                for c in ws[1]:
+                    c.font = bold
+                    c.fill = header_fill
+                    c.alignment = center
+                    c.border = border
+            # Inhalte
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                for cell in row:
+                    cell.alignment = left if wide_wrap else cell.alignment
+                    cell.border = border
+            # Spaltenbreiten (autofit grob)
+            for col_idx in range(1, ws.max_column + 1):
+                col = get_column_letter(col_idx)
+                maxlen = 8
+                for row in ws.iter_rows(min_col=col_idx, max_col=col_idx, min_row=1, max_row=min(ws.max_row, 200)):
+                    val = row[0].value
+                    if val is None:
+                        continue
+                    txt = str(val)
+                    maxlen = max(maxlen, len(txt))
+                ws.column_dimensions[col].width = min(maxlen + 2, 60)
+            # Freeze Pane
+            if freeze and ws.max_row > 1:
+                ws.freeze_panes = "A2"
+            return ws
+
+        # Stil auf alle relevanten Blätter
+        for sheet in ["01_Stammdaten","10_Gefährdungen","20_Maßnahmen","30_Plan",
+                      "40_Wirksamkeit","50_Dokumentation","60_Fortschreiben",
+                      "90_Konfiguration","99_README"]:
+            wide = sheet not in ["01_Stammdaten","90_Konfiguration","99_README"]
+            style_sheet(sheet, freeze=True, wide_wrap=wide)
+
+        # Dropdown für Status im Plan-Blatt
+        if "30_Plan" in wb.sheetnames:
+            ws_plan = wb["30_Plan"]
+            if ws_plan.max_row >= 2 and ws_plan.max_column >= 1:
+                # Finde Spalte "Status"
+                status_col_idx = None
+                for c in range(1, ws_plan.max_column + 1):
+                    if (ws_plan.cell(row=1, column=c).value or "").strip() == "Status":
+                        status_col_idx = c
+                        break
+                if status_col_idx:
+                    dv = DataValidation(
+                        type="list",
+                        formula1='"' + ",".join(STATUS_LIST) + '"',
+                        allow_blank=True,
+                        showDropDown=True,
+                    )
+                    ws_plan.add_data_validation(dv)
+                    dv.ranges.append(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576")
+
+        # Farbskala (Risiko-Ampel) im Gefährdungsblatt auf "Risikosumme"
+        if "10_Gefährdungen" in wb.sheetnames:
+            ws_h = wb["10_Gefährdungen"]
+            # Spalte "Risikosumme" suchen
+            risk_col = None
+            for c in range(1, ws_h.max_column + 1):
+                if (ws_h.cell(row=1, column=c).value or "").strip() == "Risikosumme":
+                    risk_col = c
+                    break
+            if risk_col:
+                # 3-Farbskala: grün -> gelb -> rot
+                col_letter = get_column_letter(risk_col)
+                rng = f"{col_letter}2:{col_letter}{ws_h.max_row}"
+                rule = ColorScaleRule(
+                    start_type="num", start_value=1, start_color="C6EFCE",   # grünlich
+                    mid_type="num", mid_value=max(2, thresholds[1]), mid_color="FFEB9C",  # gelb
+                    end_type="num", end_value=max(3, thresholds[2]+1), end_color="F8CBAD"  # rot
+                )
+                ws_h.conditional_formatting.add(rng, rule)
+
+        # Druckfreundliche Kopfzeile (einfach)
+        for name in wb.sheetnames:
+            ws = wb[name]
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0  # beliebig viele Seiten in der Höhe
+
     bio.seek(0)
     return bio.read()
+
+
 
 def as_json(assess: Assessment) -> str:
     return json.dumps(asdict(assess), ensure_ascii=False, indent=2)
