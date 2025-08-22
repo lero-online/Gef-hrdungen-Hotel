@@ -354,7 +354,7 @@ LIB_EIS = {
 LIB_EVENT = {
     "Vorbereitung/Produktion": [
         {"activity":"Mise en place/Kochen vor Ort","hazard":"Verbrennung/Verbrühung, Elektrik mobil","sources":["Induktionsfelder","Gasbrenner"],"existing":["E-Check mobil"],"measures":[M("Zuleitungen sichern"),M("Feuerlöscher bereit")]},
-        {"activity":"Verladen/Transport","hazard":"Quetschung/Heben/Tragen","sources":["Kisten","GN-Behälter"],"existing":["Rollwagen"],"measures":[M("Ladungssicherung"])}
+        {"activity":"Verladen/Transport","hazard":"Quetschung/Heben/Tragen","sources":["Kisten","GN-Behälter"],"existing":["Rollwagen"],"measures":[M("Ladungssicherung")]}
     ],
     "Aufbau/Betrieb": [
         {"activity":"Zelte/Provisorien","hazard":"Wind/Absturz/Stolpern","sources":["Zelt","Kabel"],"existing":["Abspannung","Kabelbrücken"],"measures":[M("Abnahme/Prüfbuch Zelt/Aggregat")]},
