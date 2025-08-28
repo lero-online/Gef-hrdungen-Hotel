@@ -560,18 +560,54 @@ LIB_FLEISCHEREI = {
     ],
 }
 
-# --- Gemeinschaftsverpflegung/Kantine ---
+# --- Gemeinschaftsverpflegung / Kantine / Catering (stark erweitert) ---
 LIB_KANTINE = {
     "Küche": [
-        {"activity":"Großkochgeräte/Kippkessel","hazard":"Verbrühung, Quetschung beim Kippen","sources":["Kippkessel"],"existing":["Hitzeschutz","2-Hand-Bed."],"measures":[M("Kipp-Prozess standardisieren")]},
-        {"activity":"Tablettförderband/Spülstraße","hazard":"Einklemm-/Scherstellen, Heißwasser/Dampf","sources":["Bandspülmaschine"],"existing":["Abdeckungen","Not-Aus"],"measures":[M("Nur befugte Bedienung")]},
-        {"activity":"Ausgabe/Frontcooking","hazard":"Verbrennung, Kontakt mit Gästen","sources":["Wärmebrücken","Pfannen"],"existing":["Abschirmung","Greifzonen"],"measures":[M("Abstand/Abschirmung","T (Technisch)")]},
-        {"activity":"Regenerieren/Heißluftwagen","hazard":"Verbrennung, Dampf","sources":["Heißluftwagen"],"existing":["Hitzeschutz"],"measures":[M("Türöffnungsroutine"),M("Schutzhandschuhe","P (PSA)")]},
+        {"activity":"Suppenkessel bedienen", "hazard":"Verbrühung durch heiße Flüssigkeiten", "sources":["Suppenkessel"], "existing":["Zweihandbedienung"], "measures":[M("Spritzschutz einsetzen","T (Technisch)"), M("Hitzeschutzhandschuhe nutzen","P (PSA)")]},
+        {"activity":"Kippbräter bedienen", "hazard":"Quetschgefahr beim Kippen", "sources":["Kippbräter"], "existing":["Bedienungsanleitung"], "measures":[M("Nur mit 2-Hand-Bedienung arbeiten","O (Organisatorisch)")]},
+        {"activity":"Pfannen und Töpfe bewegen", "hazard":"Überlastung / Muskel-Skelett-Belastung", "sources":["Schwere Töpfe"], "existing":["Küchenwagen"], "measures":[M("Lastenverteilung","O (Organisatorisch)"), M("Schulung ergonomisches Heben","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Kombidämpfer öffnen", "hazard":"Dampfverbrühung", "sources":["Kombidämpfer"], "existing":["Abkühlzeit"], "measures":[M("Tür erst spaltweise öffnen","O (Organisatorisch)")]},
+        {"activity":"Bratplatte reinigen", "hazard":"Verbrennung durch Restwärme", "sources":["Bratplatte"], "existing":["Sichtprüfung"], "measures":[M("Nur reinigen wenn abgekühlt","O (Organisatorisch)")]},
+        {"activity":"Fritteuse bedienen", "hazard":"Fettbrand", "sources":["Fritteuse"], "existing":["Fettbrandlöscher"], "measures":[M("Löschdecke/Fettbrandlöscher bereitstellen","T (Technisch)")]},
+        {"activity":"Küchenmaschine einsetzen", "hazard":"Schnitt-/Quetschgefahr", "sources":["Rührwerke","Kutter"], "existing":["Sicherheitsabschaltung"], "measures":[M("Nur befugte Bedienung","O (Organisatorisch)"), M("Nur stromlos reinigen","O (Organisatorisch)")]},
+        {"activity":"Schneidbretter nutzen", "hazard":"Biologische Kontamination", "sources":["Lebensmittelreste"], "existing":["Farbcodierung"], "measures":[M("Strikte Farbkodierung durchsetzen","O (Organisatorisch)")]},
+        {"activity":"Arbeiten im Kühlraum", "hazard":"Kälteexposition", "sources":["Kühlraum"], "existing":["Kälteschutzkleidung"], "measures":[M("Maximale Aufenthaltsdauer festlegen","O (Organisatorisch)")]},
+        {"activity":"Arbeiten im Tiefkühlraum", "hazard":"Einsperr-Risiko", "sources":["TK-Raum"], "existing":["Notöffnung"], "measures":[M("Tür-Notöffnung regelmäßig prüfen","T (Technisch)")]},
     ],
+
     "Logistik": [
-        {"activity":"Transportwagen/Tablettwagen","hazard":"Quetschen/Stolpern","sources":["Rollwagen","Aufzüge"],"existing":["Wege frei"],"measures":[M("Lastbegrenzung/Wegepriorität")]},
-        {"activity":"Annahme/Kommissionierung","hazard":"Schnitt/Heben/Tragen","sources":["Kisten","Folien"],"existing":["Sichere Messer","Rollwagen"],"measures":[M("Sicherheitsmesser einsetzen","S (Substitution/Quelle entfernen)")]},
-    ]
+        {"activity":"Warenannahme prüfen", "hazard":"Stolper-/Rutschgefahr", "sources":["Rampe","Feuchtigkeit"], "existing":["Rutschfeste Schuhe"], "measures":[M("Rampe sauber und trocken halten","O (Organisatorisch)")]},
+        {"activity":"Kisten tragen", "hazard":"Rückenbelastung", "sources":["Schwere Kisten"], "existing":["Hebehilfen"], "measures":[M("Teamarbeit oder Hilfsmittel nutzen","O (Organisatorisch)")]},
+        {"activity":"Rollcontainer bewegen", "hazard":"Anfahren / Quetschungen", "sources":["Rollcontainer"], "existing":["Wegeordnung"], "measures":[M("Langsam fahren, Bremsen prüfen","O (Organisatorisch)")]},
+        {"activity":"Lagerregale bestücken", "hazard":"Herabfallende Lasten", "sources":["Regale"], "existing":["Lastenbegrenzung"], "measures":[M("Nur geprüfte Leitern/Tritte nutzen","O (Organisatorisch)")]},
+        {"activity":"Paletten bewegen", "hazard":"Fußverletzungen", "sources":["Paletten","Hubwagen"], "existing":["Sicherheitsschuhe"], "measures":[M("Stapler-/Hubwagenunterweisung","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Anlieferung Tiefkühlware", "hazard":"Kälteverbrennungen an Händen", "sources":["TK-Ware"], "existing":["Handschuhe"], "measures":[M("Kälteschutzhandschuhe tragen","P (PSA)")]},
+    ],
+
+    "Reinigung und Hygiene": [
+        {"activity":"Spülmaschine befüllen", "hazard":"Verbrühung durch heißes Wasser", "sources":["Spülmaschine"], "existing":["Abschirmung"], "measures":[M("Tür erst nach Abkühlen öffnen","O (Organisatorisch)")]},
+        {"activity":"Küchengeräte reinigen", "hazard":"Chemikalienverätzung", "sources":["Reiniger"], "existing":["Dosiersystem"], "measures":[M("Nur mit Handschutz arbeiten","P (PSA)")]},
+        {"activity":"Böden reinigen", "hazard":"Rutschgefahr", "sources":["Nasser Boden"], "existing":["Warnschilder"], "measures":[M("Boden sofort trocknen","O (Organisatorisch)")]},
+        {"activity":"Sanitärbereiche reinigen", "hazard":"Biologische Gefährdung", "sources":["Toiletten","Flächen"], "existing":["PSA"], "measures":[M("Desinfektionsplan einhalten","O (Organisatorisch)")]},
+        {"activity":"Abfallentsorgung", "hazard":"Schnitt-/Stichverletzungen", "sources":["Müllsäcke","Scherben"], "existing":["Feste Behälter"], "measures":[M("Nur stichfeste Handschuhe nutzen","P (PSA)")]},
+    ],
+
+    "Service": [
+        {"activity":"Buffet auffüllen", "hazard":"Verbrennung durch Warmhaltebehälter", "sources":["Chafing Dish"], "existing":["Hitzeschutz"], "measures":[M("Hitzehandschuhe tragen","P (PSA)")]},
+        {"activity":"Speisen servieren", "hazard":"Stolper-/Rutschgefahr", "sources":["Tabletts","Boden"], "existing":["Rutschfeste Schuhe"], "measures":[M("Tabletts nicht überlasten","O (Organisatorisch)")]},
+        {"activity":"Kaffeemaschine bedienen", "hazard":"Verbrühung durch Dampf", "sources":["Kaffeemaschine"], "existing":["Hinweisschilder"], "measures":[M("Nur geschultes Personal bedienen lassen","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Gläser polieren", "hazard":"Schnittverletzungen", "sources":["Gläser"], "existing":["Entsorgung defekter Gläser"], "measures":[M("Polierhandschuhe tragen","P (PSA)")]},
+    ],
+
+    "Catering": [
+        {"activity":"Speisen verpacken", "hazard":"Kontamination durch unsauberes Arbeiten", "sources":["Transportboxen"], "existing":["Reinigung"], "measures":[M("Rein-/Unrein-Zonen trennen","O (Organisatorisch)")]},
+        {"activity":"Speisen verladen", "hazard":"Rücken-/Gelenkbelastung", "sources":["Thermobehälter"], "existing":["Rollwagen"], "measures":[M("Maximales Gewicht beschränken","O (Organisatorisch)")]},
+        {"activity":"Speisen transportieren", "hazard":"Verbrennung an heißen Thermobehältern", "sources":["Thermobehälter"], "existing":["Handschutz"], "measures":[M("Hitzehandschuhe verwenden","P (PSA)")]},
+        {"activity":"Buffet aufbauen", "hazard":"Stolpern durch Kabel", "sources":["Kabel","Kochplatten"], "existing":["Kabelbrücken"], "measures":[M("Kabel sauber verlegen","O (Organisatorisch)")]},
+        {"activity":"Mobile Kochgeräte betreiben", "hazard":"Brand durch Gasgeräte", "sources":["Gasherde"], "existing":["Feuerlöscher"], "measures":[M("Gasleckprüfung durchführen","O (Organisatorisch)")]},
+        {"activity":"Zelte aufbauen", "hazard":"Absturzgefahr", "sources":["Zeltkonstruktion"], "existing":["Abspannung"], "measures":[M("Zeltabnahme dokumentieren","O (Organisatorisch)")]},
+        {"activity":"Nachveranstaltung reinigen", "hazard":"Schnittverletzung durch Scherben", "sources":["Gläser","Flaschen"], "existing":["Abfallbehälter"], "measures":[M("Stichfeste Handschuhe nutzen","P (PSA)")]},
+    ],
 }
 
 # --- Konditorei/Café ---
