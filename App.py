@@ -156,14 +156,10 @@ def dump_excel(assess: Assessment) -> bytes:
     meta_df = pd.DataFrame(list(meta.items()), columns=["Feld", "Wert"])
 
     # Dokumentation (Schritt 7)
-    doc_df = pd.DataFrame(
-        {"Dokumentationshinweis": [assess.documentation_note or ""]}
-    )
+    doc_df = pd.DataFrame({"Dokumentationshinweis": [assess.documentation_note or ""]})
 
     # Fortschreiben (Schritt 8)
-    prog_df = pd.DataFrame(
-        {"Anlässe/Fristen (Fortschreibung)": [assess.next_review_hint or ""]}
-    )
+    prog_df = pd.DataFrame({"Anlässe/Fristen (Fortschreibung)": [assess.next_review_hint or ""]})
 
     # Konfiguration
     thresholds = assess.risk_matrix_thresholds.get("thresholds", [6, 12, 16])
@@ -203,12 +199,10 @@ def dump_excel(assess: Assessment) -> bytes:
         # Styling Helper
         header_fill = PatternFill("solid", fgColor="E6EEF8")
         bold = Font(bold=True)
-        center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        left = Alignment(horizontal="left", vertical="top", wrap_text=True)
         thin = Side(style="thin", color="DDDDDD")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-                def style_sheet(name: str, freeze=True, wide_wrap=True):
+        def style_sheet(name: str, freeze: bool = True, wide_wrap: bool = True):
             ws = wb[name]
             # Überschriften-Format
             if ws.max_row >= 1:
@@ -250,12 +244,11 @@ def dump_excel(assess: Assessment) -> bytes:
                 ws.freeze_panes = "A2"
             return ws
 
-
         # Stil auf alle relevanten Blätter
-        for sheet in ["01_Stammdaten","10_Gefährdungen","20_Maßnahmen","30_Plan",
-                      "40_Wirksamkeit","50_Dokumentation","60_Fortschreiben",
-                      "90_Konfiguration","99_README"]:
-            wide = sheet not in ["01_Stammdaten","90_Konfiguration","99_README"]
+        for sheet in ["01_Stammdaten", "10_Gefährdungen", "20_Maßnahmen", "30_Plan",
+                      "40_Wirksamkeit", "50_Dokumentation", "60_Fortschreiben",
+                      "90_Konfiguration", "99_README"]:
+            wide = sheet not in ["01_Stammdaten", "90_Konfiguration", "99_README"]
             style_sheet(sheet, freeze=True, wide_wrap=wide)
 
         # Dropdown für Status im Plan-Blatt
@@ -276,7 +269,9 @@ def dump_excel(assess: Assessment) -> bytes:
                         showDropDown=True,
                     )
                     ws_plan.add_data_validation(dv)
-                    dv.ranges.append(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576")
+                    dv.ranges.append(
+                        f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576"
+                    )
 
         # Farbskala (Risiko-Ampel) im Gefährdungsblatt auf "Risikosumme"
         if "10_Gefährdungen" in wb.sheetnames:
@@ -306,6 +301,7 @@ def dump_excel(assess: Assessment) -> bytes:
 
     bio.seek(0)
     return bio.read()
+
 
 
 
