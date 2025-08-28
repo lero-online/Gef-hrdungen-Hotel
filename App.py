@@ -419,30 +419,71 @@ LIB_HOTEL = {
         {"activity":"Winterdienst","hazard":"Rutschen, Kälte","sources":["Eis/Schnee"],"existing":["Räum-/Streuplan"],"measures":[M("Rutschhemmende Spikes/Schuhe","P (PSA)"),M("Prioritätswege & Frühstartplan")]},
     ],
 }
-
-# --- Bäckerei ---
+# --- Bäckerei (erweitert) ---
 LIB_BAECKEREI = {
-    "Produktion": [
-        {"activity":"Backen am Etagen-/Stikkenofen","hazard":"Hitze/Verbrennung, Dampf","sources":["Öfen","Backwagen"],"existing":["Hitzeschutz"],"measures":[M("Backwagen fixieren"),M("Hitzeschutzhandschuhe","P (PSA)")]},
-        {"activity":"Knetmaschine/Spiral-/Hubkneter","hazard":"Eingezogenwerden/Quetschen","sources":["Knetmaschine"],"existing":["Schutzhaube","Not-Aus"],"measures":[M("Hauben-/Not-Aus-Prüfplan","T (Technisch)")]},
-        {"activity":"Teigteiler/Rundwirker","hazard":"Quetschen/Schnitt","sources":["Teigteiler","Rundwirker"],"existing":["Schutzvorrichtungen"],"measures":[M("Reinigung nur stromlos")]},
-        {"activity":"Ausziehen/Ofenschießen","hazard":"Verbrennung/Überlastung","sources":["Schießer","Bleche"],"existing":["Ofenhandschuhe"],"measures":[M("Zweitperson bei schweren Wagen")]},
-        {"activity":"Fritteuse/Schmalzgebäck","hazard":"Fettbrand/Verbrennung","sources":["Fritteuse"],"existing":["Fettbrandlöscher"],"measures":[M("Öltemperatur/Wechselplan")]},
-        {"activity":"Mehlstaub/Abwiegen","hazard":"Staubexposition, ggf. Explosion","sources":["Mehlstaub"],"existing":["Absaugung"],"measures":[M("Staubarme Dosierung","S (Substitution/Quelle entfernen)")]},
-        {"activity":"Schockfrosten/Kühlräume","hazard":"Kälte/Rutsch","sources":["TK","Kühlräume"],"existing":["Kälteschutz"],"measures":[M("Aufenthaltsdauer begrenzen")]},
-        {"activity":"Reinigung/Desinfektion","hazard":"Chemikalien/Ätzwirkung","sources":["Reiniger"],"existing":["Haut-/Augenschutz"],"measures":[M("Dosierstationen & BA","T (Technisch)")]},
+    "Rohstofflagerung/-handling": [
+        {"activity":"Mehlsilo befüllen", "hazard":"Mehlstaubexposition", "sources":["Silo","Förderschnecke"], "existing":["Absaugung vorhanden"], "measures":[M("Absaugung prüfen/Protokoll","T (Technisch)"), M("FFP2/Staubmaske bereithalten","P (PSA)")]},
+        {"activity":"Mehlsilo befüllen", "hazard":"Staubexplosionsgefahr", "sources":["Silo","Entlüftung"], "existing":["Erdung/Verdrahtung"], "measures":[M("Zündquellen vermeiden","O (Organisatorisch)"), M("ATEX-Doku bereithalten")]},
+        {"activity":"Sackware tragen/heben", "hazard":"Überlastung Bewegungsapparat", "sources":["Mehlsäcke","Zutaten"], "existing":["Hubwagen"], "measures":[M("Hebe-/Tragetechnik schulen","Q (Qualifikation/Unterweisung)"), M("Lastbegrenzung einführen")]},
+        {"activity":"Zutaten abwiegen (Nüsse, Milchpulver, Eier)", "hazard":"Allergenkontakt", "sources":["Allergene"], "existing":["Kennzeichnung"], "measures":[M("Rein-/Unrein-Trennung","O (Organisatorisch)"), M("Einmalhandschuhe bereitstellen","P (PSA)")]},
+        {"activity":"TK-/Kühlraum betreten", "hazard":"Kälteexposition", "sources":["TK-Raum","Kühlraum"], "existing":["Kälteschutzjacken"], "measures":[M("Aufenthaltsdauer begrenzen"), M("Tür-Notöffnung prüfen","T (Technisch)")]},
+        {"activity":"TK-/Kühlraum betreten", "hazard":"Rutschgefahr", "sources":["Kondenswasser","Glätte"], "existing":["Rutschhemmender Boden"], "measures":[M("Antirutsch-Matten einsetzen","T (Technisch)"), M("Sofort-Wisch-Regel einführen")]},
     ],
-    "Verkauf": [
-        {"activity":"Brotschneidemaschine","hazard":"Schnittverletzung","sources":["Brotschneider"],"existing":["Schutzhaube"],"measures":[M("Nur befugte Bedienung")]},
-        {"activity":"Heißgetränke","hazard":"Verbrühung","sources":["Kaffeemaschine"],"existing":["Hitzeschutz"],"measures":[M("Dampflanze abblasen")]},
-        {"activity":"Kasse/Überfallrisiko","hazard":"Konflikt/Überfall (betriebsabhängig)","sources":["Kasse"],"existing":["Schulung"],"measures":[M("Deeskalation/Regelwerk")]},
-        {"activity":"Allergenkennzeichnung","hazard":"Fehlkennzeichnung","sources":["Backwaren"],"existing":["Kennzeichnung"],"measures":[M("Vier-Augen-Prinzip Etiketten")]},
+
+    "Teigherstellung": [
+        {"activity":"Spiralkneter bedienen", "hazard":"Eingezogenwerden an bewegten Teilen", "sources":["Spiralkneter","Werkzeuge"], "existing":["Schutzhaube","Not-Aus"], "measures":[M("Interlocks prüfen/Journal","T (Technisch)"), M("Nur befugte Bedienung","O (Organisatorisch)")]},
+        {"activity":"Hubkneter kippen", "hazard":"Quetschgefahr beim Kippen", "sources":["Hubkneter","Kippvorrichtung"], "existing":["Zweihandbedienung"], "measures":[M("Kippbereich freihalten","O (Organisatorisch)"), M("Jährliche Prüfung dokumentieren","T (Technisch)")]},
+        {"activity":"Kippkneter reinigen", "hazard":"Unerwarteter Anlauf", "sources":["Antrieb","Schalter"], "existing":["Hauptschalter"], "measures":[M("LOTO/Stillsetzen anwenden","O (Organisatorisch)"), M("Unterweisung LOTO","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Teigteiler bedienen", "hazard":"Quetsch-/Scherstellen", "sources":["Teigteiler"], "existing":["Schutzvorrichtungen"], "measures":[M("Sicherheitsfunktions-Test täglich","O (Organisatorisch)")]},
+        {"activity":"Rundwirker bedienen", "hazard":"Fingerquetschung an Transportrollen", "sources":["Rundwirker"], "existing":["Abdeckungen"], "measures":[M("Gefahrenbereich markieren","T (Technisch)")]},
+        {"activity":"Teig wiegen/portionieren", "hazard":"Ergonomische Zwangshaltungen", "sources":["Waage","Arbeitstische"], "existing":["Höhenverstellbarer Tisch"], "measures":[M("Arbeitsplätze anpassen","T (Technisch)"), M("Mikropausen planen","O (Organisatorisch)")]},
     ],
-    "Logistik": [
-        {"activity":"Lieferung/Backwagen","hazard":"Quetschungen/Sturz","sources":["Backwagen","Rampe"],"existing":["Stopper"],"measures":[M("Rampe sichern","T (Technisch)")]},
-        {"activity":"Palettieren/Transport","hazard":"Anfahren/Quetschen","sources":["Paletten","Hubwagen"],"existing":["Wegeordnung"],"measures":[M("Vorfahrt/Signale aushängen")]},
-    ]
+
+    "Backen": [
+        {"activity":"Etagenofen beschicken", "hazard":"Verbrennung an heißen Flächen", "sources":["Etagenofen","Backkammer"], "existing":["Ofenhandschuhe"], "measures":[M("Hitzeschutzhandschuhe nutzen","P (PSA)"), M("Heißflächen kennzeichnen","T (Technisch)")]},
+        {"activity":"Stikkenofen öffnen", "hazard":"Verbrühung durch Heißdampf", "sources":["Stikkenofen"], "existing":["Warnhinweise"], "measures":[M("Tür spaltweise öffnen","O (Organisatorisch)"), M("Gesicht abwenden")]},
+        {"activity":"Schießerarbeit (ein-/ausbacken)", "hazard":"Überstreckung/Rückenbelastung", "sources":["Schießer","Bleche"], "existing":["Hilfsmittel"], "measures":[M("Schießer mit Stiel in passend","S (Substitution/Quelle entfernen)"), M("Zweitperson bei großen Blechen","O (Organisatorisch)")]},
+        {"activity":"Backwagen fahren", "hazard":"Quetsch-/Anfahrgefahr", "sources":["Backwagen","Engstellen"], "existing":["Wegeordnung"], "measures":[M("Wege freihalten/markieren","T (Technisch)")]},
+        {"activity":"Schmalzgebäck frittieren", "hazard":"Fettbrand", "sources":["Fritteuse","Fett"], "existing":["Fettbrandlöscher"], "measures":[M("Kein Wasser auf Fett!","O (Organisatorisch)"), M("Löschdecke bereithalten","P (PSA)")]},
+        {"activity":"Schmalzgebäck frittieren", "hazard":"Verbrennung durch heißes Fett", "sources":["Fritteuse","Spritzer"], "existing":["Spritzschutz"], "measures":[M("Hitzeschutzschürze tragen","P (PSA)"), M("Ölstand/Temp. kontrollieren","O (Organisatorisch)")]},
+    ],
+
+    "Weiterverarbeitung": [
+        {"activity":"Kuvertüre temperieren", "hazard":"Kontakt mit heißer Flüssigkeit", "sources":["Kuvertürebecken"], "existing":["Hitzeschutz"], "measures":[M("Spritzschutz verwenden","T (Technisch)"), M("Langsam umfüllen","O (Organisatorisch)")]},
+        {"activity":"Füllmaschine betreiben", "hazard":"Quetschgefahr an Einzugspunkten", "sources":["Füllzylinder","Förderung"], "existing":["Abdeckungen"], "measures":[M("Nur bei Stillstand reinigen","O (Organisatorisch)"), M("Hauptschalter sichern (LOTO)")]},
+        {"activity":"Kühl-/TK-Ware entnehmen", "hazard":"Kältebedingte Erfrierung", "sources":["TK-Regal","Minusgrade"], "existing":["Kälteschutzhandschuhe"], "measures":[M("Kälteschutz-PSA konsequent","P (PSA)"), M("Kurzzeit-Aufenthalte planen","O (Organisatorisch)")]},
+        {"activity":"Torten/Feingebäck glasieren", "hazard":"Rutschgefahr durch Tropfen", "sources":["Glasur","Boden"], "existing":["Bodenreinigung"], "measures":[M("Anti-Rutsch-Matten","T (Technisch)"), M("Sofort-Wisch-Regel","O (Organisatorisch)")]},
+    ],
+
+    "Reinigung": [
+        {"activity":"Maschinenreinigung (Teigteiler/Rundwirker)", "hazard":"Schnitt-/Schergefahr an Klingen", "sources":["Messer","Klingen"], "existing":["Werkzeug zum Entfernen"], "measures":[M("Reinigung nur stromlos","O (Organisatorisch)"), M("Schnittschutzhandschuhe","P (PSA)")]},
+        {"activity":"CIP/Schlauchreinigung", "hazard":"Ätz-/Reizwirkung durch Chemie", "sources":["Lauge","Säure"], "existing":["Dosieranlage"], "measures":[M("Betriebsanweisungen aushängen","O (Organisatorisch)"), M("Augendusche/Notdusche prüfen","T (Technisch)")]},
+        {"activity":"Bodenreinigung Nassbereich", "hazard":"Rutsch-/Sturzgefahr", "sources":["Wasser","Reiniger"], "existing":["Warnschilder"], "measures":[M("Abschnittweise sperren","O (Organisatorisch)"), M("Rutschhemmende Schuhe","P (PSA)")]},
+        {"activity":"Backöfen reinigen", "hazard":"Verbrennung durch Restwärme", "sources":["Backraum","Heizelemente"], "existing":["Abkühlzeit"], "measures":[M("Freigabe erst <40°C","O (Organisatorisch)"), M("Hitzeschutz-Handschuhe","P (PSA)")]},
+    ],
+
+    "Verkauf/Service": [
+        {"activity":"Brotschneidemaschine bedienen", "hazard":"Schnittverletzung an der Klinge", "sources":["Brotschneider"], "existing":["Schutzhaube"], "measures":[M("Nur befugte Bedienung","O (Organisatorisch)"), M("Schnittschutzhandschuhe bereit","P (PSA)")]},
+        {"activity":"Heißgetränke ausgeben", "hazard":"Verbrühung an heißem Wasser/Dampf", "sources":["Kaffeemaschine","Heißwasser"], "existing":["Warnhinweis"], "measures":[M("Dampflanze vorher abblasen","O (Organisatorisch)"), M("Becher sicher abstellen")]},
+        {"activity":"Verkaufstheke bedienen", "hazard":"Infektionsrisiko durch Kundenkontakt", "sources":["Publikumsverkehr"], "existing":["Händehygiene"], "measures":[M("Händedesinfektion bereitstellen","T (Technisch)")]},
+        {"activity":"Kassentätigkeit", "hazard":"Psychische Belastung/Überfallrisiko", "sources":["Kasse","Kundenstrom"], "existing":["Kassenrichtlinie"], "measures":[M("Deeskalation schulen","Q (Qualifikation/Unterweisung)"), M("Keine großen Barbestände","O (Organisatorisch)")]},
+    ],
+
+    "Logistik/Transport": [
+        {"activity":"Backwagen/Rollwagen schieben", "hazard":"Hand-/Fingerquetschung", "sources":["Backwagen","Türstock"], "existing":["Griffe"], "measures":[M("Langsam in Engstellen","O (Organisatorisch)"), M("Anschlagkanten schützen","T (Technisch)")]},
+        {"activity":"Rampe/Andienung", "hazard":"Stolper-/Sturzgefahr an Kanten", "sources":["Rampe","Kanten"], "existing":["Kantenmarkierung"], "measures":[M("Rampe sauber/vereisungsfrei","O (Organisatorisch)")]},
+        {"activity":"Beladen von Lieferfahrzeugen", "hazard":"Überlastung/Heben/Tragen", "sources":["Kisten","Bleche"], "existing":["Rollhilfen"], "measures":[M("Team-Hebeplan/Lastbegrenzung","O (Organisatorisch)"), M("Hebehilfen beschaffen","T (Technisch)")]},
+        {"activity":"Stapler/FFZ im Lager", "hazard":"Anfahr-/Quetschunfälle", "sources":["Stapler","Hubwagen"], "existing":["Wegeordnung"], "measures":[M("Fuß-/Fahrwege trennen","T (Technisch)"), M("Nur ausgebildete Fahrer","O (Organisatorisch)")]},
+    ],
+
+    "Wartung/Technik": [
+        {"activity":"Elektrische Instandhaltung", "hazard":"Elektrischer Schlag", "sources":["Verteilungen","Maschinen"], "existing":["E-Check"], "measures":[M("Nur EFK/EUP beauftragen","O (Organisatorisch)"), M("Spannungsfreiheit prüfen","O (Organisatorisch)")]},
+        {"activity":"Gasbrenner/Öfen warten", "hazard":"Explosions-/Brandgefahr", "sources":["Gasleitungen","Brenner"], "existing":["Dichtheitsprüfung"], "measures":[M("Lecksuche/Seifentest","O (Organisatorisch)"), M("Feuerlöscher bereitstellen")]},
+        {"activity":"Druckluftanlage betreiben", "hazard":"Schlauchplatzer/Lärm", "sources":["Kompressor","Schläuche"], "existing":["Wartungsplan"], "measures":[M("Geprüfte Schläuche/Armaturen","T (Technisch)"), M("Gehörschutz verfügbar","P (PSA)")]},
+        {"activity":"Kälteanlage (NH3/CO₂)", "hazard":"Gefahrstofffreisetzung", "sources":["Kälteanlage","Aggregate"], "existing":["Gaswarnanlage"], "measures":[M("Alarm-/Rettungsplan aushängen","O (Organisatorisch)"), M("Fluchtfilter/Fluchtgeräte","P (PSA)")]},
+    ],
 }
+
 
 # --- Fleischerei/Metzgerei ---
 LIB_FLEISCHEREI = {
