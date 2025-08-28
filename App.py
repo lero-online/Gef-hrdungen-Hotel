@@ -485,21 +485,79 @@ LIB_BAECKEREI = {
 }
 
 
-# --- Fleischerei/Metzgerei ---
+# --- Fleischerei / Fleischindustrie (erweitert: Schlachtung, Zerlegung, Verarbeitung) ---
 LIB_FLEISCHEREI = {
-    "Produktion": [
-        {"activity":"Bandsäge","hazard":"Schnitt/Amputation","sources":["Bandsäge"],"existing":["Schutzhaube","Not-Aus"],"measures":[M("Nur befugte Bedienung"),M("Reinigung stromlos")]},
-        {"activity":"Fleischwolf","hazard":"Eingezogenwerden","sources":["Fleischwolf"],"existing":["Stopfer","Schutz"],"measures":[M("Stopfer konsequent nutzen")]},
-        {"activity":"Kutter","hazard":"Schnitt/Schlag","sources":["Kutter"],"existing":["Haube","Verriegelung"],"measures":[M("Verriegelung prüfen","T (Technisch)")]},
-        {"activity":"Vakuumierer/Schrumpfer","hazard":"Verbrennung/Quetschung","sources":["Heißsiegel"],"existing":["Hitzeschutz"],"measures":[M("Heißzonen markieren","T (Technisch)")]},
-        {"activity":"Kühl-/TK-Lager","hazard":"Kälte/Rutsch","sources":["Kühl/TK"],"existing":["Kälteschutz"],"measures":[M("Zeitbegrenzung/Matten")]},
-        {"activity":"Reinigung/Desinfektion","hazard":"Chemische Belastung","sources":["Reiniger"],"existing":["PSA"],"measures":[M("SDB/Betriebsanweisungen an Station","T (Technisch)")]},
-        {"activity":"Räuchern/Heißräuchern","hazard":"Rauch/Verbrennung/CO","sources":["Räucherkammer"],"existing":["Abluft"],"measures":[M("CO-Warnung falls nötig","T (Technisch)")]},
+    "Schlachtung": [
+        {"activity":"Tiere treiben zum Wartehof", "hazard":"Tiertritte", "sources":["Tiere","Treibhilfe"], "existing":["Rutschfeste Böden"], "measures":[M("Ruhiges Treiben und Trennwände","O (Organisatorisch)"), M("Schutzhandschuhe und Sicherheitsschuhe","P (PSA)")]},
+        {"activity":"Fixieren im Betäubungsbox", "hazard":"Quetschung", "sources":["Fixierbox","Schieber"], "existing":["Not-Aus"], "measures":[M("Funktionsprüfung Betätigungsorgane","T (Technisch)"), M("Nur geschultes Personal an der Box","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Betäuben mit Bolzenschuss", "hazard":"Fehlbetäubung", "sources":["Bolzenschussgerät"], "existing":["Wartungsplan"], "measures":[M("Täglicher Funktionstest und Ersatzgerät","O (Organisatorisch)"), M("Sicherer Abschusswinkel schulen","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Betäuben mit CO2", "hazard":"Atemluftverdrängung", "sources":["CO2 Grube"], "existing":["Gaswarnanlage"], "measures":[M("CO2 Warngeräte prüfen und loggen","T (Technisch)"), M("Zutrittsregel mit Freimessung","O (Organisatorisch)")]},
+        {"activity":"Aufhängen am Schlachtband", "hazard":"Einklemmgefahr", "sources":["Haken","Band"], "existing":["Abschirmungen"], "measures":[M("Greifbereiche markieren","T (Technisch)"), M("Nur bei Stillstand Störungen beseitigen","O (Organisatorisch)")]},
+        {"activity":"Entbluten mit Messer", "hazard":"Schnittverletzung", "sources":["Messer"], "existing":["Scharfe Messer"], "measures":[M("Schnittschutzschürze und Handschuhe","P (PSA)"), M("Messerführung schulen","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Brühen im Brühtrog", "hazard":"Verbrühung", "sources":["Heißwasser","Dampf"], "existing":["Temperaturbegrenzung"], "measures":[M("Spritzschutz und Warnkennzeichnung","T (Technisch)"), M("Gesicht abwenden beim Öffnen","O (Organisatorisch)")]},
+        {"activity":"Abschwarten Enthäuten", "hazard":"Schnittverletzung", "sources":["Abschwartmaschine","Messer"], "existing":["Abdeckungen"], "measures":[M("Nur stromlos reinigen","O (Organisatorisch)"), M("Schnittschutz anlegen","P (PSA)")]},
+        {"activity":"Kopfsägen", "hazard":"Amputationsgefahr", "sources":["Säge"], "existing":["Zweihandbedienung"], "measures":[M("Sicherheitsfunktion prüfen und dokumentieren","T (Technisch)")]},
+        {"activity":"Ausnehmen Eingeweide", "hazard":"Biologische Gefährdung", "sources":["Innereien","Blut"], "existing":["Hygieneplan"], "measures":[M("Augen und Gesichtsschutz bei Spritzern","P (PSA)"), M("Händehygiene und Desinfektion","O (Organisatorisch)")]},
+        {"activity":"Schlachtbandarbeit", "hazard":"Ergonomische Zwangshaltung", "sources":["Bandtakt","Arbeitsplätze"], "existing":["Höhenanpassung"], "measures":[M("Rotationsplan und Mikropausen","O (Organisatorisch)"), M("Greifräume optimieren","T (Technisch)")]},
     ],
-    "Verkauf": [
-        {"activity":"Aufschnitt/Bedienung","hazard":"Schnittverletzung","sources":["Aufschnitt"],"existing":["Schutzhaube"],"measures":[M("Messerschulung/Handschutz","Q (Qualifikation/Unterweisung)")]},
-        {"activity":"Heißtheke","hazard":"Verbrennung","sources":["Heiße Theken"],"existing":["Hitzeschutz"],"measures":[M("Abdeckung/Abstellen sichern","T (Technisch)")]},
-    ]
+
+    "Zerlegung": [
+        {"activity":"Hälften am Haken bewegen", "hazard":"Quetschung", "sources":["Fleischhaken","Schienensystem"], "existing":["Anschlagpunkte"], "measures":[M("Stoßkanten polstern und Wege freihalten","T (Technisch)")]},
+        {"activity":"Großteile mit Kran heben", "hazard":"Anschlagen von Lasten", "sources":["Kettenzug","Haken"], "existing":["Geprüfte Anschlagmittel"], "measures":[M("Nur unterwiesene Anschläger","Q (Qualifikation/Unterweisung)")]},
+        {"activity":"Bandsäge für Knochen", "hazard":"Schnittverletzung", "sources":["Bandsäge"], "existing":["Schutzhaube","Not-Aus"], "measures":[M("Nur befugte Bedienung","O (Organisatorisch)"), M("Schieber verwenden","O (Organisatorisch)")]},
+        {"activity":"Handentbeinen mit Messer", "hazard":"Stichverletzung", "sources":["Ausbeinmesser"], "existing":["Schnittschutz"], "measures":[M("Kettenhandschuh tragen","P (PSA)"), M("Schleifplan Messer","O (Organisatorisch)")]},
+        {"activity":"Trimmarbeiten", "hazard":"Schnittverletzung", "sources":["Messer"], "existing":["Sichere Messer"], "measures":[M("Rutschhemmende Unterlagen","T (Technisch)")]},
+        {"activity":"Vibrationsmesser nutzen", "hazard":"Hand Arm Vibration", "sources":["Vibro Messer"], "existing":["Wartung"], "measures":[M("Expositionszeit begrenzen","O (Organisatorisch)"), M("Antivibrationshandschuhe","P (PSA)")]},
+        {"activity":"Knochenreste entfernen", "hazard":"Infektionsgefahr", "sources":["Knochenreste"], "existing":["Handschuhe"], "measures":[M("Wundversorgung und Pflasterspender","T (Technisch)")]},
+        {"activity":"Kühlraum Zerlegebereich", "hazard":"Kälteexposition", "sources":["Kühlraum"], "existing":["Kälteschutzkleidung"], "measures":[M("Aufenthaltsdauer begrenzen","O (Organisatorisch)")]},
+        {"activity":"Nassbereich am Boden", "hazard":"Rutschgefahr", "sources":["Wasser","Fett"], "existing":["Rutschhemmung"], "measures":[M("Sofort Wisch Regel","O (Organisatorisch)"), M("Rutschhemmende Schuhe","P (PSA)")]},
+    ],
+
+    "Verarbeitung und Wurstherstellung": [
+        {"activity":"Kutter betreiben", "hazard":"Scherstellen an Messerstern", "sources":["Kutter"], "existing":["Haube mit Verriegelung"], "measures":[M("Verriegelung täglich prüfen","O (Organisatorisch)")]},
+        {"activity":"Kutter betreiben", "hazard":"Lärmexposition", "sources":["Kutter"], "existing":["Gehörschutz"], "measures":[M("Gehörschutz tragen und dokumentieren","P (PSA)")]},
+        {"activity":"Mischer und Menger", "hazard":"Eingezogenwerden", "sources":["Mischer"], "existing":["Abdeckungen"], "measures":[M("Nur mit Abdeckung betreiben","O (Organisatorisch)")]},
+        {"activity":"Füllmaschine bedienen", "hazard":"Quetschgefahr am Einzug", "sources":["Füller"], "existing":["Schutzbügel"], "measures":[M("Reinigung nur stromlos","O (Organisatorisch)")]},
+        {"activity":"Clipmaschine bedienen", "hazard":"Fingerquetschung", "sources":["Clipper"], "existing":["Zweihandbedienung"], "measures":[M("Handschutz und klare Abläufe","O (Organisatorisch)")]},
+        {"activity":"Räucheranlagen beschicken", "hazard":"Verbrennung an heißen Flächen", "sources":["Räucherkammer"], "existing":["Temperaturanzeige"], "measures":[M("Hitzeschutzhandschuhe","P (PSA)")]},
+        {"activity":"Räucheranlagen betreiben", "hazard":"Rauchgasexposition", "sources":["Rauchgenerator"], "existing":["Absaugung"], "measures":[M("Abluft prüfen und dokumentieren","T (Technisch)")]},
+        {"activity":"Thermische Behandlung", "hazard":"Verbrühung durch Dampf", "sources":["Kochkessel","Heißdampf"], "existing":["Sicherheitsventile"], "measures":[M("Heißdampfleitungen isolieren","T (Technisch)")]},
+        {"activity":"Gewürzhandling", "hazard":"Allergenkontakt", "sources":["Gewürze","Zusätze"], "existing":["Kennzeichnung"], "measures":[M("Rein Unrein Trennung","O (Organisatorisch)"), M("Einmalhandschuhe","P (PSA)")]},
+    ],
+
+    "Hygiene und Reinigung": [
+        {"activity":"Hochdruckreinigung", "hazard":"Aerosolbildung", "sources":["Hochdruckreiniger"], "existing":["Lüftung"], "measures":[M("Sprühstrahl reduzieren","O (Organisatorisch)"), M("Atemschutz bei Bedarf","P (PSA)")]},
+        {"activity":"Boden und Rinnen reinigen", "hazard":"Rutschgefahr", "sources":["Wasser","Fett"], "existing":["Warnaufsteller"], "measures":[M("Abschnittsweise Sperrung","O (Organisatorisch)")]},
+        {"activity":"Desinfektion anwenden", "hazard":"Hautreizung", "sources":["Desinfektionsmittel"], "existing":["Hautschutzplan"], "measures":[M("Dosieranlage verwenden","T (Technisch)"), M("Schutzhandschuhe","P (PSA)")]},
+        {"activity":"Chemikalien mischen", "hazard":"Ätzgefahr", "sources":["Lauge","Säure"], "existing":["Betriebsanweisung"], "measures":[M("Keine Eigenmischung ohne Freigabe","O (Organisatorisch)"), M("Augendusche und Notdusche prüfen","T (Technisch)")]},
+        {"activity":"Abfall und Nebenprodukte", "hazard":"Biologische Gefährdung", "sources":["Eingeweide","Blut"], "existing":["Dichte Behälter"], "measures":[M("Deckel geschlossen halten","O (Organisatorisch)"), M("Händehygiene sicherstellen","O (Organisatorisch)")]},
+    ],
+
+    "Kühlung und Kälte": [
+        {"activity":"Ammoniak Kälteanlage betreiben", "hazard":"Giftige Dämpfe", "sources":["NH3 Anlage"], "existing":["Gaswarnanlage"], "measures":[M("Alarm und Evakuierungsplan","O (Organisatorisch)"), M("Fluchtgeräte bereitstellen","P (PSA)")]},
+        {"activity":"Kühlraum Tür bedienen", "hazard":"Einschlussgefahr", "sources":["Kühlraumtür"], "existing":["Notöffnung innen"], "measures":[M("Notöffnungen prüfen und beschildern","T (Technisch)")]},
+        {"activity":"TK Raum begehen", "hazard":"Kälteexposition", "sources":["Minusbereich"], "existing":["Kälteschutzkleidung"], "measures":[M("Zeitbegrenzung und Partnerprinzip","O (Organisatorisch)")]},
+    ],
+
+    "Logistik und Fördertechnik": [
+        {"activity":"Fleischwagen bewegen", "hazard":"Handquetschung", "sources":["Rollwagen"], "existing":["Griffe"], "measures":[M("Langsam in Engstellen fahren","O (Organisatorisch)")]},
+        {"activity":"Förderbänder betreiben", "hazard":"Einklemmstelle", "sources":["Band","Umlenkrollen"], "existing":["Abdeckungen"], "measures":[M("Nur bei Stillstand Eingriffe","O (Organisatorisch)")]},
+        {"activity":"Rampe beladen", "hazard":"Stolperstelle", "sources":["Rampe","Kante"], "existing":["Markierung"], "measures":[M("Kante sichtbar markieren","T (Technisch)")]},
+        {"activity":"Stapler im Warenausgang", "hazard":"Anfahrunfall", "sources":["Gabelstapler"], "existing":["Wegeordnung"], "measures":[M("Personen und Fahrwege trennen","T (Technisch)"), M("Nur unterwiesene Fahrer","O (Organisatorisch)")]},
+    ],
+
+    "Wartung und Technik": [
+        {"activity":"Elektrik instandsetzen", "hazard":"Stromschlag", "sources":["Verteilungen","Maschinen"], "existing":["E Check"], "measures":[M("Nur EFK oder EUP einsetzen","O (Organisatorisch)"), M("Spannungsfreiheit prüfen","O (Organisatorisch)")]},
+        {"activity":"Gasinstallation prüfen", "hazard":"Explosion", "sources":["Gasleitung"], "existing":["Dichtheitsprüfung"], "measures":[M("Lecksuche vor Freigabe","O (Organisatorisch)")]},
+        {"activity":"Maschinen warten", "hazard":"Unerwarteter Anlauf", "sources":["Antrieb","Welle"], "existing":["Hauptschalter"], "measures":[M("LOTO anwenden","O (Organisatorisch)"), M("Restenergie prüfen","O (Organisatorisch)")]},
+        {"activity":"Schneiden wechseln", "hazard":"Schnittverletzung", "sources":["Messer","Klingen"], "existing":["Werkzeug"], "measures":[M("Schnittschutz tragen","P (PSA)"), M("Wechselanleitung aushängen","O (Organisatorisch)")]},
+    ],
+
+    "Verkauf und Theke": [
+        {"activity":"Aufschnittmaschine bedienen", "hazard":"Schnittverletzung", "sources":["Aufschnittmaschine"], "existing":["Schutzhaube"], "measures":[M("Nur befugte Bedienung","O (Organisatorisch)")]},
+        {"activity":"Heißtheke betreuen", "hazard":"Verbrennung", "sources":["Heißtheke"], "existing":["Hitzeschutz"], "measures":[M("Handschutz einsetzen","P (PSA)")]},
+        {"activity":"Kasse bedienen", "hazard":"Psychische Belastung", "sources":["Kundenstrom"], "existing":["Unterweisung"], "measures":[M("Deeskalationstraining","Q (Qualifikation/Unterweisung)")]},
+    ],
 }
 
 # --- Gemeinschaftsverpflegung/Kantine ---
