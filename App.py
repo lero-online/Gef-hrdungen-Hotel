@@ -269,9 +269,8 @@ def dump_excel(assess: Assessment) -> bytes:
                         showDropDown=True,
                     )
                     ws_plan.add_data_validation(dv)
-                    dv.ranges.append(
-                        f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576"
-                    )
+dv.add(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576")
+
 
         # Farbskala (Risiko-Ampel) im Gefährdungsblatt auf "Risikosumme"
         if "10_Gefährdungen" in wb.sheetnames:
