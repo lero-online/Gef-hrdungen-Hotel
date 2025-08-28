@@ -208,35 +208,48 @@ def dump_excel(assess: Assessment) -> bytes:
         thin = Side(style="thin", color="DDDDDD")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        def style_sheet(name: str, freeze=True, wide_wrap=True):
+                def style_sheet(name: str, freeze=True, wide_wrap=True):
             ws = wb[name]
             # Überschriften-Format
             if ws.max_row >= 1:
                 for c in ws[1]:
                     c.font = bold
                     c.fill = header_fill
-                    c.alignment = center
+                    # neues Alignment-Objekt je Zelle (kein shared Objekt)
+                    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                     c.border = border
+
             # Inhalte
-            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
-                for cell in row:
-                    cell.alignment = left if wide_wrap else cell.alignment
-                    cell.border = border
-            # Spaltenbreiten (autofit grob)
+            if ws.max_row >= 2 and ws.max_column >= 1:
+                for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                    for cell in row:
+                        if wide_wrap:
+                            # bestehendes Alignment kopieren und Parameter setzen
+                            try:
+                                cell.alignment = cell.alignment.copy(horizontal="left", vertical="top", wrap_text=True)
+                            except Exception:
+                                # Fallback: frisches Alignment setzen
+                                cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        cell.border = border
+
+            # Spaltenbreiten (autofit grob, limitiert für Performance)
             for col_idx in range(1, ws.max_column + 1):
                 col = get_column_letter(col_idx)
                 maxlen = 8
-                for row in ws.iter_rows(min_col=col_idx, max_col=col_idx, min_row=1, max_row=min(ws.max_row, 200)):
-                    val = row[0].value
+                # bis zu 200 Zeilen scannen
+                limit = min(ws.max_row, 200)
+                for r in range(1, limit + 1):
+                    val = ws.cell(row=r, column=col_idx).value
                     if val is None:
                         continue
-                    txt = str(val)
-                    maxlen = max(maxlen, len(txt))
+                    maxlen = max(maxlen, len(str(val)))
                 ws.column_dimensions[col].width = min(maxlen + 2, 60)
+
             # Freeze Pane
             if freeze and ws.max_row > 1:
                 ws.freeze_panes = "A2"
             return ws
+
 
         # Stil auf alle relevanten Blätter
         for sheet in ["01_Stammdaten","10_Gefährdungen","20_Maßnahmen","30_Plan",
