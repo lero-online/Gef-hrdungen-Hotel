@@ -164,10 +164,8 @@ def dump_excel(assess: Assessment) -> bytes:
     # Konfiguration
     thresholds = assess.risk_matrix_thresholds.get("thresholds", [6, 12, 16])
     conf_df = pd.DataFrame(
-        {
-            "Einstellung": ["Grenze niedrig (≤)", "Grenze mittel (≤)", "Grenze hoch (≤)"],
-            "Wert": [thresholds[0], thresholds[1], thresholds[2]],
-        }
+        {"Einstellung": ["Grenze niedrig (≤)", "Grenze mittel (≤)", "Grenze hoch (≤)"],
+         "Wert": [thresholds[0], thresholds[1], thresholds[2]]}
     )
 
     # --- Excel schreiben ---
@@ -209,7 +207,7 @@ def dump_excel(assess: Assessment) -> bytes:
                 for c in ws[1]:
                     c.font = bold
                     c.fill = header_fill
-                    # neues Alignment-Objekt je Zelle (kein shared Objekt)
+                    # eigenes Alignment-Objekt je Zelle
                     c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                     c.border = border
 
@@ -218,20 +216,17 @@ def dump_excel(assess: Assessment) -> bytes:
                 for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
                     for cell in row:
                         if wide_wrap:
-                            # bestehendes Alignment kopieren und Parameter setzen
                             try:
                                 cell.alignment = cell.alignment.copy(horizontal="left", vertical="top", wrap_text=True)
                             except Exception:
-                                # Fallback: frisches Alignment setzen
                                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
                         cell.border = border
 
-            # Spaltenbreiten (autofit grob, limitiert für Performance)
+            # Spaltenbreiten (autofit grob, limitiert)
             for col_idx in range(1, ws.max_column + 1):
                 col = get_column_letter(col_idx)
                 maxlen = 8
-                # bis zu 200 Zeilen scannen
-                limit = min(ws.max_row, 200)
+                limit = min(ws.max_row, 200)  # Performance
                 for r in range(1, limit + 1):
                     val = ws.cell(row=r, column=col_idx).value
                     if val is None:
@@ -269,8 +264,7 @@ def dump_excel(assess: Assessment) -> bytes:
                         showDropDown=True,
                     )
                     ws_plan.add_data_validation(dv)
-dv.add(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576")
-
+                    dv.add(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)}1048576")
 
         # Farbskala (Risiko-Ampel) im Gefährdungsblatt auf "Risikosumme"
         if "10_Gefährdungen" in wb.sheetnames:
@@ -288,7 +282,7 @@ dv.add(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)
                 rule = ColorScaleRule(
                     start_type="num", start_value=1, start_color="C6EFCE",   # grünlich
                     mid_type="num", mid_value=max(2, thresholds[1]), mid_color="FFEB9C",  # gelb
-                    end_type="num", end_value=max(3, thresholds[2]+1), end_color="F8CBAD"  # rot
+                    end_type="num", end_value=max(3, thresholds[2] + 1), end_color="F8CBAD"  # rot
                 )
                 ws_h.conditional_formatting.add(rng, rule)
 
@@ -300,6 +294,7 @@ dv.add(f"{get_column_letter(status_col_idx)}2:{get_column_letter(status_col_idx)
 
     bio.seek(0)
     return bio.read()
+
 
 
 
